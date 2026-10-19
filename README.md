@@ -15,6 +15,7 @@ The fonts are in `assets/fonts`, so the pages look the same when you are offline
 - `subjects/<subject>/<trace>.html` - one file for each trace. You write these by hand.
 - `assets/base.css` - the fonts and the page reset. Every page loads it first. It also loads `theme.css`.
 - `assets/theme.css` - **every color of the site**, in one file. Each color is one line with both values: `--ink: light-dark(#13202D, #E7EEF4);`. Three `color-scheme` lines at the top choose light or dark.
+- `assets/favicon.svg`, `assets/favicon.ico`, `assets/apple-touch-icon.png` - the site icon. Every page links all three in its `<head>`.
 - `assets/theme.js` - reads the saved choice, sets `data-theme` on `<html>` before the page draws, and adds the night mode button.
 - `assets/hub.css` - the styles of the main page and the subject pages.
 - `assets/trace.css` - the shared styles of the trace pages. A trace page can add its own styles in a `<style>` block after the link.
@@ -80,4 +81,3 @@ Add it to `manifest.json`, make the folder `subjects/<id>/`, and run `npm run bu
 ## Fonts
 
 Bricolage Grotesque, Instrument Sans, and JetBrains Mono are in `assets/fonts` under the SIL Open Font License. The license text is in `assets/fonts/LICENSES.txt`.
-# autodidact

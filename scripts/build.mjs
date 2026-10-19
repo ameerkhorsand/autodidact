@@ -35,6 +35,9 @@ function head(title, cssHref, assetsPrefix) {
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 ${GENERATED}
 <title>${esc(title)}</title>
+<link rel="icon" href="${assetsPrefix}assets/favicon.ico" sizes="32x32">
+<link rel="icon" href="${assetsPrefix}assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="${assetsPrefix}assets/apple-touch-icon.png">
 <link rel="stylesheet" href="${assetsPrefix}assets/base.css">
 <link rel="stylesheet" href="${assetsPrefix}assets/${cssHref}">
 <script src="${assetsPrefix}assets/theme.js"></script>
@@ -88,6 +91,9 @@ for (const s of manifest.subjects) {
     const where = `subjects/${s.id}/${t.file}`;
     for (const need of ['assets/base.css', 'assets/trace.css', 'assets/player.js']) {
       if (!html.includes(need)) fail(`${where} does not load ${need}.`);
+    }
+    for (const icon of ['assets/favicon.ico', 'assets/favicon.svg', 'assets/apple-touch-icon.png']) {
+      if (!html.includes(icon)) fail(`${where} does not link ${icon}. Copy the three icon <link> lines from another trace page into the <head>.`);
     }
     // theme.js must be a plain script in the <head>, so the theme is set before the page draws (no flash).
     const themeTag = html.search(/<script src="(?:\.\.\/)+assets\/theme\.js"><\/script>/);
