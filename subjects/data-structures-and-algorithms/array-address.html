@@ -1,0 +1,521 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Address of an Array Element</title>
+<link rel="stylesheet" href="../../assets/base.css">
+<link rel="stylesheet" href="../../assets/trace.css">
+<script src="../../assets/theme.js"></script>
+<style>
+/* Layout: grid-paper page. Code and values on the left. Array view and narration on the right. The memory strip and the formula use the full width. */
+.layout { grid-template-areas: "code diagram" "table note" "memory memory" "formula formula"; }
+.p-memory { grid-area: memory; }
+@media (max-width: 860px) {
+  .layout { grid-template-areas: "note" "diagram" "memory" "code" "table" "formula"; }
+}
+:root {
+  --t1: var(--hl);
+  --t2: color-mix(in srgb, var(--done) 30%, var(--paper));
+  --t3: color-mix(in srgb, var(--ty) 30%, var(--paper));
+}
+.p-diagram .stage { min-height: 300px; }
+.ac polygon, .ac rect { fill: var(--paper); stroke: var(--ink); stroke-width: 1.2; }
+.ac.t1 polygon, .ac.t1 rect { fill: var(--t1); }
+.ac.t2 polygon, .ac.t2 rect { fill: var(--t2); }
+.ac.t3 polygon, .ac.t3 rect { fill: var(--t3); }
+.ac .ov { stroke: none; pointer-events: none; }
+.ac.t2 .ov { fill: url(#hatch); }
+.ac.t3 .ov { fill: url(#dots); }
+.ac text { font: 500 12px var(--font-mono); fill: var(--ink); }
+.ac.tg polygon.b, .ac.tg rect.b { stroke: var(--accent); stroke-width: 3.2; }
+.ac.fill polygon.b, .ac.fill rect.b { fill: var(--accent); }
+.ac.fill text { fill: var(--on-accent); font-weight: 700; }
+.ac.tg text { font-weight: 700; }
+.axl { font: 500 12px var(--font-mono); fill: var(--muted); }
+.axl.on { fill: var(--accent); font-weight: 700; }
+.axc { font: 500 11px var(--font-mono); letter-spacing: 0.06em; fill: var(--muted); text-transform: uppercase; }
+.axline { stroke: var(--muted); stroke-width: 1.4; fill: none; }
+.brk2 { fill: none; stroke: var(--ink); stroke-width: 1.6; }
+.brk2.k1 { stroke: var(--accent); }
+.brk2.k2 { stroke: var(--done); }
+.brk2.k3 { stroke: var(--ty); }
+.blab { font: 500 12px var(--font-mono); fill: var(--ink); }
+.blab.k1 { fill: var(--accent); }
+.blab.k2 { fill: var(--done); }
+.blab.k3 { fill: var(--ty); }
+.mtick { stroke: var(--ink); stroke-width: 1.6; }
+.mlab { font: 500 12px var(--font-mono); fill: var(--ink); }
+.mlab.tgl { fill: var(--accent); font-weight: 700; }
+.legend .asw { display: inline-block; width: 16px; height: 16px; border: 1.4px solid var(--ink); border-radius: 3px; background: var(--paper); }
+.legend .asw.t1 { background: var(--t1); }
+.legend .asw.t2 { background: var(--t2); background-image: repeating-linear-gradient(45deg, transparent 0 3px, var(--done) 3px 4px); }
+.legend .asw.t3 { background: var(--t3); background-image: radial-gradient(var(--ty) 1.2px, transparent 1.6px); background-size: 5px 5px; }
+.legend .asw.tg { border: 3px solid var(--accent); }
+.legend .asw.fill { background: var(--accent); border-color: var(--accent); }
+.fx { font: 500 15px/1.6 var(--font-mono); margin: 0 0 4px; overflow-x: auto; white-space: nowrap; }
+.fx.on { color: var(--accent); font-weight: 700; }
+.fx sub { font-size: 0.75em; }
+.picks .pick { min-width: 0; }
+.picks select { min-width: 88px; }
+.p-memory .stage { padding: 10px 14px 6px; }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" style="stroke:var(--done);stroke-width:1.4"/></pattern>
+    <pattern id="dots" width="6" height="6" patternUnits="userSpaceOnUse"><circle cx="3" cy="3" r="1.2" style="fill:var(--ty)"/></pattern>
+  </defs>
+</svg>
+
+<div class="wrap">
+  <a class="back" href="index.html">&larr; Data Structures and Algorithms</a>
+  <header>
+    <div class="intro">
+      <h1>Address of an element in a 2D or 3D array</h1>
+      <p>A computer stores an array as one long line of elements. To find A[i][j][k], count the elements that come before it. Then multiply by the element size and add the base address. Choose the layout and the element. Step through the count and see which part of the array is skipped.</p>
+    </div>
+    <div class="picks" id="picks">
+      <div class="pick"><label class="label" for="selD">Dimensions</label><select id="selD" class="param"><option value="2">2D</option><option value="3" selected>3D</option></select></div>
+      <div class="pick"><label class="label" for="selO">Order</label><select id="selO" class="param"><option value="row" selected>Row-major</option><option value="col">Column-major</option></select></div>
+      <div class="pick"><label class="label" for="selR">Rows (R)</label><select id="selR" class="param sz"></select></div>
+      <div class="pick"><label class="label" for="selC">Columns (C)</label><select id="selC" class="param sz"></select></div>
+      <div class="pick" id="pkH"><label class="label" for="selH">Height (H)</label><select id="selH" class="param sz"></select></div>
+      <div class="pick"><label class="label" for="selM">Element size (m)</label><select id="selM" class="param"><option value="1">1 byte</option><option value="2">2 bytes</option><option value="4" selected>4 bytes</option><option value="8">8 bytes</option></select></div>
+      <div class="pick"><label class="label" for="selB">Base address</label><select id="selB" class="param"><option value="0">0</option><option value="100">100</option><option value="1000" selected>1000</option><option value="2000">2000</option><option value="4096">4096</option></select></div>
+      <div class="pick"><label class="label" for="selL">First index</label><select id="selL" class="param"><option value="0" selected>0</option><option value="1">1</option></select></div>
+      <div class="pick"><label class="label" for="selI">Index i (row)</label><select id="selI" class="param ix"></select></div>
+      <div class="pick"><label class="label" for="selJ">Index j (column)</label><select id="selJ" class="param ix"></select></div>
+      <div class="pick" id="pkK"><label class="label" for="selK">Index k (height)</label><select id="selK" class="param ix"></select></div>
+    </div>
+  </header>
+
+  <section class="panel controls" aria-label="Playback controls">
+    <button type="button" class="btn" id="reset">Reset</button>
+    <button type="button" class="btn" id="prev">Back</button>
+    <button type="button" class="btn primary" id="play">Play</button>
+    <button type="button" class="btn" id="next">Next</button>
+    <input type="range" class="scrub" id="scrub" min="0" max="1" value="0" aria-label="Step">
+    <span class="stepno" id="stepno">Step 0 of 0</span>
+    <label class="spd"><span class="label">Speed</span>
+      <select id="speed">
+        <option value="3200">Slow</option>
+        <option value="2200" selected>Normal</option>
+        <option value="1200">Fast</option>
+      </select>
+    </label>
+  </section>
+
+  <div class="layout">
+    <section class="panel p-code">
+      <h2>Code</h2>
+      <ol class="code" id="code" aria-label="Source code"></ol>
+    </section>
+
+    <section class="panel p-diagram">
+      <h2 id="dgTitle">Array view</h2>
+      <div class="stage" id="stage"></div>
+      <div class="legend" id="legend"></div>
+    </section>
+
+    <section class="panel p-table">
+      <h2>Values</h2>
+      <ul class="ptable" id="ptable" aria-label="Values of the calculation"></ul>
+    </section>
+
+    <section class="panel p-note">
+      <div class="note-box">
+        <div class="eyebrow"><span id="title">Start</span><span id="lineref"></span></div>
+        <p class="note" id="note" aria-live="polite"></p>
+      </div>
+    </section>
+
+    <section class="panel p-memory">
+      <h2>Memory</h2>
+      <div class="stage" id="mem"></div>
+    </section>
+
+    <section class="panel p-formula">
+      <h2>Formula</h2>
+      <div class="formula" id="formula"></div>
+    </section>
+  </div>
+</div>
+
+<script>
+//SIM-START
+function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+// Build the model of one calculation. c = { d, order, R, C, H, m, base, lo, i, j, k }.
+// Terms go from the slowest index to the fastest index.
+function model(c) {
+  var R = c.R, C = c.C, H = c.H, lo = c.lo;
+  var v = { i: c.i - lo, j: c.j - lo, k: c.k - lo };
+  var spec; // each: [axis, stride parts as [symbol, number], unit name, unit text]
+  if (c.d === 3 && c.order === 'row') {
+    spec = [['i', [['C', C], ['H', H]], 'plane', 'A plane is all elements with the same i.'],
+            ['j', [['H', H]], 'line', 'A line is all elements with the same i and j.'],
+            ['k', [], 'element', '']];
+  } else if (c.d === 3) {
+    spec = [['k', [['R', R], ['C', C]], 'plane', 'A plane is all elements with the same k.'],
+            ['j', [['R', R]], 'line', 'A line is all elements with the same j and k.'],
+            ['i', [], 'element', '']];
+  } else if (c.order === 'row') {
+    spec = [['i', [['C', C]], 'row', 'A row is all elements with the same i.'],
+            ['j', [], 'element', '']];
+  } else {
+    spec = [['j', [['R', R]], 'column', 'A column is all elements with the same j.'],
+            ['i', [], 'element', '']];
+  }
+  var terms = [], start = 0;
+  spec.forEach(function (s) {
+    var stride = 1, sym = [], num = [];
+    s[1].forEach(function (p) { stride *= p[1]; sym.push(p[0]); num.push(p[1]); });
+    var ax = s[0], cnt = v[ax];
+    var axTxt = lo ? '(' + ax + ' − ' + lo + ')' : ax;
+    var axNum = lo ? '(' + c[ax] + ' − ' + lo + ')' : String(c[ax]);
+    var symTxt = sym.length > 1 ? '(' + sym.join(' × ') + ')' : sym.join('');
+    var numTxt = num.length > 1 ? '(' + num.join(' × ') + ')' : num.join('');
+    var t = {
+      ax: ax, cnt: cnt, stride: stride, skip: cnt * stride, start: start,
+      unit: s[2], unitText: s[3], sym: sym, num: num,
+      label: sym.length ? axTxt + ' × ' + symTxt : axTxt,
+      numLabel: num.length ? axNum + ' × ' + numTxt : axNum,
+      strideText: num.length ? num.join(' × ') + (num.length > 1 ? ' = ' + stride : '') : '1',
+      symText: sym.join(' × ')
+    };
+    start += t.skip;
+    terms.push(t);
+  });
+  var N = c.d === 3 ? R * C * H : R * C;
+  return { terms: terms, index: start, bytes: start * c.m, addr: c.base + start * c.m, N: N, v: v };
+}
+
+// Position of cell (a, b, e) in memory. a, b, e are 0-based indexes of i, j, k.
+function lin(c, a, b, e) {
+  var R = c.R, C = c.C, H = c.H;
+  if (c.d === 3) return c.order === 'row' ? a * C * H + b * H + e : e * R * C + b * R + a;
+  return c.order === 'row' ? a * C + b : b * R + a;
+}
+
+function ordinal(n) { return n + 1; }
+
+function codeFor(c) {
+  var mod = model(c), L = [], key = {}, T = mod.terms;
+  function add(t, k) { L.push(t); if (k) { (key[k] = key[k] || []).push(L.length); } }
+  if (c.order === 'row') {
+    if (c.d === 3) { add('#define C ' + c.C); add('#define H ' + c.H); }
+    else add('#define C ' + c.C);
+  } else {
+    if (c.d === 3) { add('#define R ' + c.R); add('#define C ' + c.C); }
+    else add('#define R ' + c.R);
+  }
+  var args = c.d === 3 ? 'int i, int j, int k' : 'int i, int j';
+  add('long address(long base, int m, ' + args + ') {');
+  var names = c.d === 3 ? ['planes', 'lines', 'items'] : [T[0].unit + 's', 'items'];
+  T.forEach(function (t, n) {
+    var rhs = t.label.replace(/ \u00D7 /g, ' * ').replace(/ \u2212 /g, ' - ');
+    if (!t.sym.length) rhs = rhs.replace(/^\((\w) - (\d)\)$/, '$1 - $2');
+    add('    long ' + names[n] + ' = ' + rhs + ';', 't' + n);
+  });
+  add('    long index = ' + names.map(function (n) { return n; }).join(' + ') + ';', 'index');
+  add('    return base + index * m;', 'ret');
+  add('}');
+  return { lines: L, key: key };
+}
+
+function simulate(c) {
+  var mod = model(c), T = mod.terms, steps = [], code = codeFor(c), K = code.key;
+  var A = 'A[' + (c.d === 3 ? c.i + '][' + c.j + '][' + c.k : c.i + '][' + c.j) + ']';
+  var nT = T.length;
+  function snap(o) {
+    o.lines = o.lines || [];
+    steps.push(o);
+  }
+  var orderTxt = c.order === 'row'
+    ? 'This is row-major order. The last index (' + T[nT - 1].ax + ') changes fastest.'
+    : 'This is column-major order. The first index (' + T[nT - 1].ax + ') changes fastest.';
+  snap({ title: 'Start', shown: 0, known: 0, note: 'The array is stored as one line of ' + mod.N + ' elements. ' + orderTxt + ' The target is ' + A + '. Its address is the base address plus the size of everything before it.' });
+  T.forEach(function (t, n) {
+    var last = n === nT - 1, nm = t.unit;
+    var first = c.lo ? 'The first index is ' + c.lo + ', so the number of ' + nm + 's to skip is ' + t.ax + ' − ' + c.lo + ' = ' + t.cnt + '. ' : '';
+    var note;
+    if (!last) {
+      note = t.unitText + ' One ' + nm + ' holds ' + t.symText + ' = ' + t.stride + ' elements. ' + first +
+        (c.lo ? '' : 'The target is in ' + nm + ' ' + t.cnt + '. ') +
+        'Skip ' + t.cnt + ' ' + nm + (t.cnt === 1 ? '' : 's') + ': ' + t.cnt + ' × ' + t.stride + ' = ' + t.skip + ' element' + (t.skip === 1 ? '' : 's') + '.';
+    } else {
+      var where = nT === 3 ? 'its line' : (c.order === 'row' ? 'its row' : 'its column');
+      note = first + 'Inside ' + where + ', ' + t.cnt + ' element' + (t.cnt === 1 ? '' : 's') + ' come before the target. Skip ' + t.cnt + '.';
+    }
+    var title = last ? 'Skip elements' : 'Skip ' + nm + 's';
+    snap({ title: title, shown: n + 1, known: n + 1, lines: K['t' + n], hi: ['t' + n], note: note });
+  });
+  snap({ title: 'Add the counts', shown: nT, known: nT + 1, lines: K.index, hi: ['index'], note: 'Add the skipped elements: ' + T.map(function (t) { return t.skip; }).join(' + ') + ' = ' + mod.index + '. So ' + mod.index + ' element' + (mod.index === 1 ? '' : 's') + ' come before ' + A + '. This number is the index of the element in memory, counted from 0.' });
+  snap({ title: 'Multiply by m', shown: nT, known: nT + 2, lines: K.ret, hi: ['bytes'], note: 'Each element uses m = ' + c.m + ' byte' + (c.m === 1 ? '' : 's') + '. The bytes before the target are ' + mod.index + ' × ' + c.m + ' = ' + mod.bytes + '.' });
+  snap({ title: 'Add the base', shown: nT, known: nT + 3, lines: K.ret, hi: ['addr'], note: 'Add the base address: ' + c.base + ' + ' + mod.bytes + ' = ' + mod.addr + '. This is the address of ' + A + '.' });
+  snap({ title: 'Done', shown: nT, known: nT + 3, done: true, note: A + ' starts at address ' + mod.addr + '. It uses the bytes ' + mod.addr + ' to ' + (mod.addr + c.m - 1) + '.' });
+  return steps;
+}
+
+var JW = 540;
+function r1(v) { return Math.round(v * 10) / 10; }
+
+// Tier of the cell at memory position p: 0 for none, 1 to 3 for the skip groups that are shown.
+function tierOf(mod, p, shown) {
+  for (var n = 0; n < shown; n++) {
+    var t = mod.terms[n];
+    if (p >= t.start && p < t.start + t.skip) return n + 1;
+  }
+  return 0;
+}
+
+function cellG(cls, shapes, text, tx, ty) {
+  return '<g class="ac ' + cls + '">' + shapes + (text === null ? '' : '<text x="' + r1(tx) + '" y="' + r1(ty + 4) + '" text-anchor="middle">' + text + '</text>') + '</g>';
+}
+function polyShapes(pts, tier, tg) {
+  var p = pts.map(function (q) { return r1(q[0]) + ',' + r1(q[1]); }).join(' ');
+  return '<polygon class="b" points="' + p + '"/>' + (tier > 1 ? '<polygon class="ov" points="' + p + '"/>' : '');
+}
+
+function draw2D(c, mod, st) {
+  var R = c.R, C = c.C, cs = C > 5 || R > 5 ? 42 : 48;
+  var gw = C * cs, gh = R * cs, gx = Math.round((JW - gw) / 2) + 14, gy = 62;
+  var H = gy + gh + 62, i, j, out = '';
+  var desc = c.order + '-major array with ' + R + ' rows and ' + C + ' columns. Target at row ' + c.i + ', column ' + c.j + '.';
+  out += '<svg viewBox="0 0 ' + JW + ' ' + H + '" width="' + JW + '" style="width:100%;max-width:' + JW + 'px;min-width:340px" role="img" aria-label="' + esc(desc) + '">';
+  out += '<text class="axc" x="' + (gx + gw / 2) + '" y="20" text-anchor="middle">columns (j)</text>';
+  out += '<text class="axc" transform="translate(' + (gx - 40) + ',' + (gy + gh / 2) + ') rotate(-90)" text-anchor="middle">rows (i)</text>';
+  for (j = 0; j < C; j++) out += '<text class="axl' + (j === mod.v.j ? ' on' : '') + '" x="' + (gx + j * cs + cs / 2) + '" y="' + (gy - 10) + '" text-anchor="middle">' + (j + c.lo) + '</text>';
+  for (i = 0; i < R; i++) out += '<text class="axl' + (i === mod.v.i ? ' on' : '') + '" x="' + (gx - 10) + '" y="' + (gy + i * cs + cs / 2 + 4) + '" text-anchor="end">' + (i + c.lo) + '</text>';
+  for (i = 0; i < R; i++) for (j = 0; j < C; j++) {
+    var p = lin(c, i, j, 0), tr = tierOf(mod, p, st.shown), isT = (i === mod.v.i && j === mod.v.j);
+    var cls = (tr ? 't' + tr : '') + (isT ? ' tg' : '') + (isT && st.known > mod.terms.length ? ' fill' : '');
+    var x = gx + j * cs, y = gy + i * cs;
+    out += cellG(cls, '<rect class="b" x="' + x + '" y="' + y + '" width="' + cs + '" height="' + cs + '"/>' + (tr > 1 ? '<rect class="ov" x="' + x + '" y="' + y + '" width="' + cs + '" height="' + cs + '"/>' : ''), p, x + cs / 2, y + cs / 2);
+  }
+  out += '<text class="axc" x="' + (gx + gw / 2) + '" y="' + (gy + gh + 30) + '" text-anchor="middle">Number in a cell = place in memory</text>';
+  out += '<text class="axc" x="' + (gx + gw / 2) + '" y="' + (gy + gh + 48) + '" text-anchor="middle" style="fill:var(--accent)">target: A[' + c.i + '][' + c.j + ']</text>';
+  return out + '</svg>';
+}
+
+function draw3D(c, mod, st) {
+  var R = c.R, C = c.C, H = c.H, cs = 38, ch = 24, sh = 14, gap = 20;
+  var sw = C * cs + R * sh, shh = R * ch;
+  var top = 40, x0 = Math.round((JW - sw) / 2) + 20;
+  var total = top + H * shh + (H - 1) * gap + 56;
+  var out = '', a, b, e;
+  var desc = c.order + '-major array with ' + R + ' rows, ' + C + ' columns and height ' + H + '. Target at ' + c.i + ', ' + c.j + ', ' + c.k + '.';
+  out += '<svg viewBox="0 0 ' + JW + ' ' + total + '" width="' + JW + '" style="width:100%;max-width:' + JW + 'px;min-width:340px" role="img" aria-label="' + esc(desc) + '">';
+  function yTop(k) { return top + (H - 1 - k) * (shh + gap); }
+  // height axis
+  var ax = Math.max(22, x0 - 60);
+  out += '<path class="axline" d="M' + ax + ',' + (top + H * shh + (H - 1) * gap) + ' L' + ax + ',' + (top + 4) + '"/>' +
+    '<path class="axline" d="M' + (ax - 5) + ',' + (top + 12) + ' L' + ax + ',' + (top + 3) + ' L' + (ax + 5) + ',' + (top + 12) + '"/>' +
+    '<text class="axc" transform="translate(' + (ax - 10) + ',' + (top + (H * shh + (H - 1) * gap) / 2) + ') rotate(-90)" text-anchor="middle">height (k)</text>';
+  for (e = 0; e < H; e++) {
+    var yt = yTop(e);
+    out += '<text class="axl' + (e === mod.v.k ? ' on' : '') + '" x="' + (x0 + sw + 10) + '" y="' + (yt + shh / 2 + 4) + '">k = ' + (e + c.lo) + '</text>';
+    for (a = 0; a < R; a++) for (b = 0; b < C; b++) {
+      var p = lin(c, a, b, e), tr = tierOf(mod, p, st.shown), isT = (a === mod.v.i && b === mod.v.j && e === mod.v.k);
+      var xt = x0 + b * cs + (R - a) * sh, xb = x0 + b * cs + (R - 1 - a) * sh, y = yt + a * ch;
+      var pts = [[xt, y], [xt + cs, y], [xb + cs, y + ch], [xb, y + ch]];
+      var cls = (tr ? 't' + tr : '') + (isT ? ' tg' : '') + (isT && st.known > mod.terms.length ? ' fill' : '');
+      out += cellG(cls, polyShapes(pts, tr), p, (xt + xb) / 2 + cs / 2, y + ch / 2);
+    }
+  }
+  var yb = yTop(0) + shh;
+  for (b = 0; b < C; b++) out += '<text class="axl' + (b === mod.v.j ? ' on' : '') + '" x="' + (x0 + b * cs + cs / 2) + '" y="' + (yb + 16) + '" text-anchor="middle">' + (b + c.lo) + '</text>';
+  for (a = 0; a < R; a++) out += '<text class="axl' + (a === mod.v.i ? ' on' : '') + '" x="' + (x0 + (R - 1 - a) * sh - 6) + '" y="' + (yTop(0) + a * ch + ch / 2 + 4) + '" text-anchor="end">' + (a + c.lo) + '</text>';
+  out += '<text class="axc" x="' + (x0 + C * cs / 2) + '" y="' + (yb + 34) + '" text-anchor="middle">columns (j) → &nbsp; rows (i) ↑ back</text>';
+  out += '<text class="axc" x="' + (x0 + C * cs / 2) + '" y="' + (yb + 50) + '" text-anchor="middle" style="fill:var(--accent)">target: A[' + c.i + '][' + c.j + '][' + c.k + ']</text>';
+  return out + '</svg>';
+}
+
+function drawSVG(c, st) {
+  var mod = model(c);
+  return c.d === 3 ? draw3D(c, mod, st) : draw2D(c, mod, st);
+}
+
+function legendHTML(c, st) {
+  var mod = model(c), out = '';
+  mod.terms.forEach(function (t, n) {
+    if (n >= st.shown) return;
+    var what = n === mod.terms.length - 1 ? 'elements before the target in its ' + (mod.terms.length === 3 ? 'line' : (c.order === 'row' ? 'row' : 'column')) : t.unit + 's skipped';
+    out += '<span><i class="asw t' + (n + 1) + '"></i>' + esc(what + ' (' + t.skip + ')') + '</span>';
+  });
+  out += '<span><i class="asw tg"></i>Target element</span>';
+  if (st.known > mod.terms.length) out += '<span><i class="asw fill"></i>Found</span>';
+  return out;
+}
+
+function memHTML(c, st) {
+  var mod = model(c), N = mod.N, W = 1040, pad = 20;
+  var cw = Math.min(44, Math.floor((W - 2 * pad) / N)), x0 = Math.round((W - cw * N) / 2);
+  var yS = 92, ch = 40, nT = mod.terms.length, out = '', p;
+  var desc = 'Memory: ' + N + ' elements in one line. The target is at place ' + mod.index + '.';
+  out += '<svg viewBox="0 0 ' + W + ' 200" width="' + W + '" style="width:100%;max-width:' + W + 'px;min-width:640px" role="img" aria-label="' + esc(desc) + '">';
+  // brackets for the skip groups
+  mod.terms.forEach(function (t, n) {
+    if (n >= st.shown) return;
+    var yb = 18 + n * 20, xa = x0 + t.start * cw, xz = x0 + (t.start + t.skip) * cw;
+    var lab = (n === nT - 1 ? t.label : t.label) + ' = ' + t.skip;
+    var cls = 'k' + (n + 1);
+    if (t.skip > 0) {
+      out += '<path class="brk2 ' + cls + '" d="M' + (xa + 1) + ',' + (yS - 4) + ' V' + yb + ' H' + (xz - 1) + ' V' + (yS - 4) + '"/>';
+    } else {
+      out += '<path class="brk2 ' + cls + '" d="M' + xa + ',' + (yS - 4) + ' V' + yb + '"/>';
+    }
+    var w = lab.length * 7.4, anchor = 'start', tx = xa + 6;
+    if (tx + w > W - 6) { anchor = 'end'; tx = Math.max(xz, xa + 6) - 6; if (t.skip === 0) tx = xa - 6; }
+    out += '<text class="blab ' + cls + '" x="' + r1(tx) + '" y="' + (yb - 5) + '" text-anchor="' + anchor + '">' + esc(lab) + '</text>';
+  });
+  for (p = 0; p < N; p++) {
+    var tr = tierOf(mod, p, st.shown), isT = p === mod.index;
+    var cls = (tr ? 't' + tr : '') + (isT ? ' tg' : '') + (isT && st.known > nT ? ' fill' : '');
+    var x = x0 + p * cw;
+    out += cellG(cls, '<rect class="b" x="' + x + '" y="' + yS + '" width="' + cw + '" height="' + ch + '"/>' + (tr > 1 ? '<rect class="ov" x="' + x + '" y="' + yS + '" width="' + cw + '" height="' + ch + '"/>' : ''), cw >= 20 || isT ? p : null, x + cw / 2, yS + ch / 2);
+  }
+  // address marks
+  var xa0 = x0, xt = x0 + mod.index * cw + cw / 2, yl = yS + ch;
+  out += '<path class="mtick" d="M' + (x0 + 1) + ',' + yl + ' v10"/><text class="mlab" x="' + x0 + '" y="' + (yl + 26) + '" text-anchor="start">place 0: address ' + c.base + ' (base)</text>';
+  var tl;
+  if (st.known > nT + 2) tl = 'address ' + mod.addr + ' = ' + c.base + ' + ' + mod.bytes;
+  else if (st.known > nT + 1) tl = mod.bytes + ' bytes after the base';
+  else if (st.known > nT) tl = 'place ' + mod.index;
+  else tl = 'target';
+  if (mod.index > 0 || st.known > 0) {
+    var al = xt > W - 260 ? 'end' : 'start', tx2 = al === 'end' ? xt + 8 : xt - 8;
+    if (mod.index * cw < 330 && al === 'start') { tx2 = xt - 8; }
+    out += '<path class="mtick" style="stroke:var(--accent)" d="M' + xt + ',' + yl + ' v26"/><text class="mlab tgl" x="' + r1(tx2) + '" y="' + (yl + 46) + '" text-anchor="' + al + '">' + esc(tl) + '</text>';
+  }
+  out += '<text class="axc" x="' + (W / 2) + '" y="192" text-anchor="middle">Each cell is one element of ' + c.m + ' byte' + (c.m === 1 ? '' : 's') + '. The number is the place in memory, from 0.</text>';
+  return out + '</svg>';
+}
+
+function tableHTML(c, st) {
+  var mod = model(c), nT = mod.terms.length, rows = [];
+  mod.terms.forEach(function (t, n) {
+    rows.push(['t' + n, t.label, st.known > n ? String(t.skip) : null]);
+  });
+  rows.push(['index', 'index', st.known > nT ? String(mod.index) : null]);
+  rows.push(['bytes', 'index × m', st.known > nT + 1 ? String(mod.bytes) : null]);
+  rows.push(['addr', 'address', st.known > nT + 2 ? String(mod.addr) : null]);
+  var hi = st.hi || [];
+  return rows.map(function (r) {
+    var unset = r[2] === null;
+    return '<li class="pt' + (hi.indexOf(r[0]) >= 0 ? ' hi' : '') + '"><span class="k">' + esc(r[1]) + '</span><span class="v' + (unset ? ' unset' : '') + '">' + (unset ? 'not set' : esc(r[2])) + '</span></li>';
+  }).join('');
+}
+
+function formulaFor(d, order) {
+  if (d === 3) return order === 'row' ? '(i × (C × H) + j × H + k) × m + base' : '(k × (R × C) + j × R + i) × m + base';
+  return order === 'row' ? '(i × C + j) × m + base' : '(j × R + i) × m + base';
+}
+
+function formulaHTML(c, st) {
+  var mod = model(c), other = c.order === 'row' ? 'col' : 'row';
+  var oc = {}; for (var q in c) oc[q] = c[q]; oc.order = other;
+  var om = model(oc), done = !!st.done;
+  var name = function (o) { return o === 'row' ? 'Row-major' : 'Column-major'; };
+  var left = '<div><p class="f-h">Formula for ' + (c.d === 3 ? '3D' : '2D') + ' arrays</p>' +
+    '<p class="f-h" style="margin-top:12px">' + name(c.order) + ' (this layout)</p>' +
+    '<p class="fx on">address = ' + esc(formulaFor(c.d, c.order)) + '</p>' +
+    '<p class="f-h" style="margin-top:12px">' + name(other) + '</p>' +
+    '<p class="fx">address = ' + esc(formulaFor(c.d, other)) + '</p>' +
+    '<p class="f-note">The fastest index has the step 1. Each slower index has the step equal to the product of the sizes of all faster indexes. The size of the slowest index is not in the formula. ' +
+    'If the first index is not 0, subtract the first index from each index. The sizes R, C, H are the numbers of elements in each direction.</p></div>';
+
+  var t = mod.terms, nums = t.map(function (x) { return x.numLabel; }).join(' + ');
+  var skips = t.map(function (x) { return x.skip; }).join(' + ');
+  var right = '<div><p class="f-h">With your values</p>' +
+    '<p class="fx">R = ' + c.R + ', C = ' + c.C + (c.d === 3 ? ', H = ' + c.H : '') + ', m = ' + c.m + ', base = ' + c.base + '</p>' +
+    '<p class="fx">address = (' + esc(nums) + ') × ' + c.m + ' + ' + c.base + '</p>' +
+    '<p class="fx">= (' + skips + ') × ' + c.m + ' + ' + c.base + '</p>' +
+    '<p class="fx">= ' + mod.index + ' × ' + c.m + ' + ' + c.base + '</p>' +
+    '<p class="fx on">= ' + mod.addr + '</p>' +
+    '<p class="f-note">The array has ' + mod.N + ' elements. It uses ' + (mod.N * c.m) + ' bytes, from address ' + c.base + ' to ' + (c.base + mod.N * c.m - 1) + '. The target is element number ' + (mod.index + 1) + ' of ' + mod.N + '.</p>' +
+    '<p class="f-note">In ' + (other === 'row' ? 'row-major' : 'column-major') + ' order the same element is at address ' + om.addr + '.</p>' +
+    (done ? '<p class="f-ok">The trace ended with address ' + mod.addr + '. It matches the formula.</p>' : '<p class="f-note">The trace has not finished. The formula already gives address ' + mod.addr + '.</p>') +
+    '</div>';
+  return left + right;
+}
+//SIM-END
+
+var TRACE = {
+  cfg: null,
+  code: [],
+  getCode: function () { return codeFor(TRACE.cfg).lines; },
+  hl: function (s) {
+    var m = /^(\s*)(#define)(\s+)(\w+)(\s+)(\d+)$/.exec(s);
+    if (m) return esc(m[1]) + '<span class="kw">#define</span>' + esc(m[3]) + m[4] + esc(m[5]) + m[6];
+    return esc(s)
+      .replace(/\b(address)\b/g, '<span class="fn">$1</span>')
+      .replace(/\b(long|int|return)\b/g, '<span class="kw">$1</span>');
+  },
+  simulate: function () {
+    function v(id) { return +document.getElementById(id).value; }
+    var c = {
+      d: v('selD'), order: document.getElementById('selO').value,
+      R: v('selR'), C: v('selC'), H: v('selH'), m: v('selM'), base: v('selB'), lo: v('selL'),
+      i: v('selI'), j: v('selJ'), k: v('selK')
+    };
+    if (c.d === 2) c.k = c.lo;
+    TRACE.cfg = c;
+    return simulate(c);
+  },
+  render: function (s) {
+    var c = TRACE.cfg;
+    document.getElementById('stage').innerHTML = drawSVG(c, s);
+    document.getElementById('legend').innerHTML = legendHTML(c, s);
+    document.getElementById('mem').innerHTML = memHTML(c, s);
+    document.getElementById('ptable').innerHTML = tableHTML(c, s);
+    document.getElementById('formula').innerHTML = formulaHTML(c, s);
+    document.getElementById('dgTitle').textContent = c.d === 3 ? 'Array view (3D)' : 'Array view (2D)';
+  }
+};
+
+(function () {
+  function $(id) { return document.getElementById(id); }
+  function fill(sel, from, to, keep, fallback) {
+    var o = '';
+    for (var n = from; n <= to; n++) o += '<option value="' + n + '">' + n + '</option>';
+    sel.innerHTML = o;
+    sel.value = (keep >= from && keep <= to) ? String(keep) : String(fallback);
+  }
+  // Keep the size lists and the index lists valid for the chosen layout.
+  function sync(first) {
+    var d = +$('selD').value, lo = +$('selL').value;
+    $('pkH').hidden = d === 2; $('pkK').hidden = d === 2;
+    var max = d === 3 ? 4 : 6;
+    var R = first ? 4 : +$('selR').value, C = first ? 3 : +$('selC').value, H = first ? 3 : +$('selH').value;
+    fill($('selR'), 2, max, R, Math.min(R, max)); fill($('selC'), 2, max, C, Math.min(C, max)); fill($('selH'), 2, 4, H, 3);
+    R = +$('selR').value; C = +$('selC').value; H = +$('selH').value;
+    var pi = first ? 2 + lo : +$('selI').value, pj = first ? 1 + lo : +$('selJ').value, pk = first ? 2 + lo : +$('selK').value;
+    function ix(id, size, prev, fb) {
+      var el = $(id), o = '';
+      for (var n = 0; n < size; n++) o += '<option value="' + (n + lo) + '">' + (n + lo) + '</option>';
+      el.innerHTML = o;
+      el.value = (prev >= lo && prev < lo + size) ? String(prev) : String(Math.min(fb, size - 1) + lo);
+    }
+    ix('selI', R, pi, 2); ix('selJ', C, pj, 1); ix('selK', H, pk, 2);
+  }
+  var prevLo = 0;
+  function rebase() {
+    // When the first index changes, move the chosen indexes by the same amount.
+    var lo = +$('selL').value, dl = lo - prevLo;
+    if (dl) { $('selI').value = String(+$('selI').value + dl); $('selJ').value = String(+$('selJ').value + dl); $('selK').value = String(+$('selK').value + dl); }
+  }
+  TRACE.init = function () { sync(true); };
+  TRACE.onParam = function (el) {
+    if (el.id === 'selD') sync(false);
+    else if (el.id === 'selL') { rebase(); prevLo = +$('selL').value; sync(false); }
+    else if (el.classList.contains('sz')) sync(false);
+  };
+})();
+</script>
+<script src="../../assets/player.js"></script>
+</body>
+</html>

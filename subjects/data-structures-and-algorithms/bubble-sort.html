@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bubble Sort</title>
+<link rel="stylesheet" href="../../assets/base.css">
+<link rel="stylesheet" href="../../assets/trace.css">
+<script src="../../assets/theme.js"></script>
+</head>
+<body>
+
+<div class="wrap">
+  <a class="back" href="index.html">&larr; Data Structures and Algorithms</a>
+  <header>
+    <div class="intro">
+      <h1>Bubble sort</h1>
+      <p>Bubble sort compares neighbors and swaps them when they are in the wrong order. After each pass, the largest remaining value is in its final place at the right end. Choose a version and an input. The bars slide when two values swap.</p>
+    </div>
+    <div class="picks"><div class="pick"><label class="label" for="selVersion">Version</label><select id="selVersion" class="param"><option value="flag" selected>With early exit (swapped flag)</option><option value="basic">Without early exit</option></select></div><div class="pick"><label class="label" for="selInput">Input</label><select id="selInput" class="param"><option value="0" selected>Mixed</option><option value="1">Already sorted</option><option value="2">Reverse sorted</option><option value="3">Nearly sorted</option></select></div></div>
+  </header>
+
+  <section class="panel controls" aria-label="Playback controls">
+    <button type="button" class="btn" id="reset">Reset</button>
+    <button type="button" class="btn" id="prev">Back</button>
+    <button type="button" class="btn primary" id="play">Play</button>
+    <button type="button" class="btn" id="next">Next</button>
+    <input type="range" class="scrub" id="scrub" min="0" max="1" value="0" aria-label="Step">
+    <span class="stepno" id="stepno">Step 0 of 0</span>
+    <label class="spd"><span class="label">Speed</span>
+      <select id="speed">
+        <option value="2600">Slow</option>
+        <option value="1600" selected>Normal</option>
+        <option value="800">Fast</option>
+      </select>
+    </label>
+  </section>
+
+  <div class="layout">
+    <section class="panel p-code">
+      <h2>Code</h2>
+      <ol class="code" id="code" aria-label="Source code"></ol>
+    </section>
+
+    <section class="panel p-diagram">
+      <h2>Diagram</h2>
+      <div class="stage" id="stage"></div>
+      <div class="legend"><span><span class="sw cmp"></span>Pair being compared</span><span><span class="sw swp"></span>Pair just swapped</span><span><span class="sw fin"></span>In its final place</span><span><svg viewBox="0 0 24 14" aria-hidden="true"><path d="M2 2 V10 H22 V2" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>Range checked in this pass</span></div>
+    </section>
+
+    <section class="panel p-table">
+      <h2>Pointers</h2>
+      <ul class="ptable" id="ptable" aria-label="Pointer values"></ul>
+    </section>
+
+    <section class="panel p-note">
+      <div class="note-box">
+        <div class="eyebrow"><span id="title">Start</span><span id="lineref"></span></div>
+        <p class="note" id="note" aria-live="polite"></p>
+      </div>
+    </section>
+
+    <section class="panel p-formula">
+      <h2>Formula</h2>
+      <div class="formula" id="formula"></div>
+    </section>
+  </div>
+</div>
+
+<script>
+//SIM-START
+function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+var PRESETS = [
+  [5, 1, 4, 2, 8, 3, 7, 6],
+  [1, 2, 3, 4, 5, 6, 7, 8],
+  [8, 7, 6, 5, 4, 3, 2, 1],
+  [1, 2, 4, 3, 5, 6, 8, 7]
+];
+
+function inversions(a) {
+  var c = 0;
+  for (var p = 0; p < a.length; p++) for (var q = p + 1; q < a.length; q++) if (a[p] > a[q]) c++;
+  return c;
+}
+// For each value: how many bigger values stand to its left. Return the largest count.
+function maxLeftBigger(a) {
+  var m = 0;
+  for (var q = 0; q < a.length; q++) {
+    var c = 0;
+    for (var p = 0; p < q; p++) if (a[p] > a[q]) c++;
+    if (c > m) m = c;
+  }
+  return m;
+}
+function passesFlag(a) { return Math.min(a.length - 1, maxLeftBigger(a) + 1); }
+function cmpFlag(a) { var n = a.length, P = passesFlag(a); return P * (n - 1) - P * (P - 1) / 2; }
+function cmpBasic(n) { return n * (n - 1) / 2; }
+
+function simulate(version, pi) {
+  var flagV = version === 'flag';
+  var L = flagV ? { outer: 2, setFlag: 3, inner: 4, cmp: 5, swap: 6, setSw: 7, brk: 10 }
+                : { outer: 2, inner: 3, cmp: 4, swap: 5 };
+  var vals = PRESETS[pi].slice(), n = vals.length, k;
+  var order = [], fin = [];
+  for (k = 0; k < n; k++) { order.push(k); fin.push(false); }
+  var steps = [], cmp = 0, swp = 0, cur = { i: null, j: null, flag: null, pass: 0, end: null };
+  function A(p) { return vals[order[p]]; }
+  function snap(o) {
+    steps.push({
+      lines: o.lines || [], title: o.title, note: o.note, version: version, n: n,
+      vals: vals.slice(), order: order.slice(), fin: fin.slice(),
+      i: cur.i, j: cur.j, flag: cur.flag, pass: cur.pass, end: cur.end,
+      swapped: o.swapped || null, cmp: cmp, swp: swp, rows: o.rows || [], done: !!o.done
+    });
+  }
+  snap({ title: 'Start', note: 'The array has ' + n + ' numbers. bubbleSort(a, ' + n + ') sorts it. Each pass compares neighbors and swaps them when they are in the wrong order. Press Next or Play.' });
+  var stopped = false;
+  for (var i = 0; i < n - 1; i++) {
+    cur.i = i; cur.j = null; cur.pass = i + 1; cur.end = n - 1 - i;
+    var tail = i === 0 ? 'No value is in its final place yet.'
+      : (i === 1 ? 'The last value is already in its final place.' : 'The last ' + i + ' values are already in their final places.');
+    snap({ lines: [L.outer], title: 'Start pass ' + (i + 1), rows: ['pass', 'i'],
+      note: 'Pass ' + (i + 1) + ' starts. i = ' + i + '. The inner loop compares pairs from position 0 to position ' + (n - 1 - i) + '. ' + tail });
+    if (flagV) {
+      cur.flag = 0;
+      snap({ lines: [L.setFlag], title: 'Clear the flag', rows: ['swapped'], note: 'swapped = 0. No swap has happened in this pass yet.' });
+    }
+    for (var j = 0; j < n - 1 - i; j++) {
+      cur.j = j; cmp++;
+      var a = A(j), b = A(j + 1), gt = a > b;
+      snap({ lines: [L.inner, L.cmp], title: 'Compare', rows: ['j', 'a[j]', 'a[j + 1]', 'comparisons'],
+        note: 'j = ' + j + '. Compare a[j] = ' + a + ' with a[j + 1] = ' + b + '. Is ' + a + ' > ' + b + '? ' + (gt ? 'Yes. The pair is in the wrong order.' : 'No. The pair stays as it is.') });
+      if (gt) {
+        var t = order[j]; order[j] = order[j + 1]; order[j + 1] = t; swp++;
+        if (flagV) cur.flag = 1;
+        snap({ lines: flagV ? [L.swap, L.setSw] : [L.swap], title: 'Swap', swapped: [j, j + 1],
+          rows: flagV ? ['a[j]', 'a[j + 1]', 'swapped', 'swaps'] : ['a[j]', 'a[j + 1]', 'swaps'],
+          note: 'Swap a[j] and a[j + 1]. The value ' + a + ' moves one place to the right.' + (flagV ? ' swapped = 1.' : '') });
+      }
+    }
+    cur.j = null;
+    fin[n - 1 - i] = true;
+    snap({ lines: [L.inner], title: 'Pass ends', rows: ['pass'],
+      note: 'j = ' + (n - 1 - i) + ', so the inner loop ends. The value ' + A(n - 1 - i) + ' is at position ' + (n - 1 - i) + '. It is in its final place.' });
+    if (flagV) {
+      if (cur.flag === 0) {
+        for (k = 0; k < n; k++) fin[k] = true;
+        cur.end = null;
+        snap({ lines: [L.brk], title: 'Stop early', rows: ['swapped'],
+          note: 'swapped is 0. No swap happened in this pass, so the array is sorted. break ends the loop. The remaining values are in their final places.' });
+        stopped = true;
+        break;
+      }
+      snap({ lines: [L.brk], title: 'Check the flag', rows: ['swapped'],
+        note: i < n - 2 ? 'swapped is 1. A swap happened, so the array may not be sorted yet. The next pass starts.'
+                        : 'swapped is 1. This was the last pass of the outer loop.' });
+    }
+  }
+  cur.i = null; cur.j = null; cur.end = null;
+  if (!stopped) {
+    fin[0] = true;
+    snap({ lines: [L.outer], title: 'Outer loop ends', note: 'i = ' + (n - 1) + ', so the outer loop ends. The last value is at position 0. It is in its final place.' });
+  }
+  snap({ title: 'Sorted', done: true, note: 'The array is sorted. The run used ' + cmp + ' comparisons and ' + swp + ' swaps in ' + cur.pass + ' pass' + (cur.pass === 1 ? '' : 'es') + '.' });
+  return steps;
+}
+
+var QX0 = 76, BW = 56, BG = 10, BASE = 250, UNIT = 22, QVW = 680, QVH = 330;
+function colX(p) { return QX0 + p * (BW + BG); }
+
+function barClass(st, p) {
+  var c = 'bar';
+  if (st.fin[p]) c += ' fin';
+  else if (st.j !== null && (p === st.j || p === st.j + 1)) c += ' cur';
+  if (st.swapped && (st.swapped[0] === p || st.swapped[1] === p)) c += ' swp';
+  return c;
+}
+
+function overlayHTML(st) {
+  var out = '';
+  if (st.end !== null) {
+    var x1 = colX(0), x2 = colX(st.end) + BW, by = BASE + 30;
+    out += '<path class="brk" d="M' + x1 + ',' + (by - 5) + ' V' + by + ' H' + x2 + ' V' + (by - 5) + '"/>';
+  }
+  if (st.j !== null) {
+    [[st.j, 'j', 'pv'], [st.j + 1, 'j + 1', 'pn']].forEach(function (tg) {
+      var cx = colX(tg[0]) + BW / 2, w = Math.round(tg[1].length * 7.4 + 16), y = BASE + 50;
+      out += '<g class="tag ' + tg[2] + '"><rect x="' + (cx - w / 2) + '" y="' + y + '" width="' + w + '" height="20" rx="4"/><text x="' + cx + '" y="' + (y + 14) + '" text-anchor="middle">' + tg[1] + '</text></g>';
+      out += '<g class="tp ' + tg[2] + '"><path class="hd" d="M' + (cx - 4.5) + ',' + (BASE + 47) + ' L' + cx + ',' + (BASE + 40) + ' L' + (cx + 4.5) + ',' + (BASE + 47) + ' Z"/></g>';
+    });
+  }
+  return out;
+}
+
+function tableHTML(st) {
+  function nv(v) { return v === null ? 'not set' : String(v); }
+  var hasJ = st.j !== null;
+  var rows = [
+    ['pass', st.pass ? String(st.pass) : 'not set'],
+    ['i', nv(st.i)],
+    ['j', nv(st.j)],
+    ['a[j]', hasJ ? String(st.vals[st.order[st.j]]) : 'not set'],
+    ['a[j + 1]', hasJ ? String(st.vals[st.order[st.j + 1]]) : 'not set']
+  ];
+  if (st.version === 'flag') rows.push(['swapped', st.flag === null ? 'not set' : String(st.flag)]);
+  rows.push(['comparisons', String(st.cmp)], ['swaps', String(st.swp)]);
+  return rows.map(function (r) {
+    var unset = r[1] === 'not set';
+    return '<li class="pt' + (st.rows.indexOf(r[0]) >= 0 ? ' hi' : '') + '"><span class="k">' + esc(r[0]) + '</span><span class="v' + (unset ? ' unset' : '') + '">' + esc(r[1]) + '</span></li>';
+  }).join('');
+}
+
+function formulaHTML(st) {
+  var arr = st.vals, n = st.n, flagV = st.version === 'flag';
+  var I = inversions(arr), P = passesFlag(arr), cb = cmpBasic(n), cf = cmpFlag(arr);
+  var left = '<div><p class="f-h">Comparisons, no early exit</p>' +
+    '<p class="f-m">C(n) = (n − 1) + (n − 2) + … + 1 = n(n − 1) / 2</p>' +
+    '<p class="f-note">Pass i compares n − 1 − i pairs. Every input gives the same count. The cost is <span class="th">Θ</span>(n²).</p>' +
+    '<p class="f-h">Swaps</p>' +
+    '<p class="f-m">swaps = I, the number of inversions</p>' +
+    '<p class="f-note">An inversion is a pair of positions p &lt; q with a[p] &gt; a[q]. Each swap removes exactly one inversion. Best case: I = 0. Worst case: I = n(n − 1) / 2. Average case: I = n(n − 1) / 4.</p>' +
+    '<p class="f-h">With the swapped flag</p>' +
+    '<p class="f-m">Best case: n − 1 comparisons, 0 swaps, <span class="th">Θ</span>(n)</p>' +
+    '<p class="f-m">Worst case: n(n − 1) / 2 comparisons, <span class="th">Θ</span>(n²)</p>' +
+    '<p class="f-m">passes = min(n − 1, 1 + b)</p>' +
+    '<p class="f-note">b is the largest number of bigger values that stand to the left of one value. Each pass moves one value a long way to the right, but a small value moves left only one place in each pass. When the count is less than n − 1, the last pass makes no swap.</p>' +
+    '<p class="f-note">Extra space: O(1). The sort is stable, because equal values never swap (the test a[j] &gt; a[j + 1] is strict).</p></div>';
+  var right = '<div><p class="f-h">With this input, n = ' + n + '</p><div class="tblwrap"><table class="jt">' +
+    '<tr><th>Item</th><th>Value</th></tr>' +
+    '<tr><td style="text-align:left">Inversions I (the swaps)</td><td>' + I + '</td></tr>' +
+    '<tr><td style="text-align:left">b</td><td>' + maxLeftBigger(arr) + '</td></tr>' +
+    '<tr><td style="text-align:left">Passes with the flag</td><td>' + P + '</td></tr>' +
+    '<tr><td style="text-align:left">Comparisons, no early exit: n(n − 1) / 2</td><td>' + cb + '</td></tr>' +
+    '<tr><td style="text-align:left">Comparisons, with the flag: P(n − 1) − P(P − 1) / 2</td><td>' + cf + '</td></tr>' +
+    '<tr><td class="last" style="text-align:left">This run' + (st.done ? '' : ' so far') + ': comparisons</td><td class="last">' + st.cmp + '</td></tr>' +
+    '<tr><td class="last" style="text-align:left">This run' + (st.done ? '' : ' so far') + ': swaps</td><td class="last">' + st.swp + '</td></tr></table></div>' +
+    (st.done
+      ? ((st.cmp === (flagV ? cf : cb) && st.swp === I)
+        ? '<p class="f-ok">The run used ' + st.cmp + ' comparisons and ' + st.swp + ' swaps. Both match the formulas.</p>'
+        : '<p class="f-note">The run used ' + st.cmp + ' comparisons and ' + st.swp + ' swaps.</p>')
+      : '<p class="f-note">The formulas already give the final counts for this input.</p>') +
+    '</div>';
+  return left + right;
+}
+//SIM-END
+
+function bsCode(version) {
+  if (version === 'flag') return [
+    'void bubbleSort(int a[], int n) {',
+    '    for (int i = 0; i < n - 1; i++) {',
+    '        int swapped = 0;',
+    '        for (int j = 0; j < n - 1 - i; j++) {',
+    '            if (a[j] > a[j + 1]) {',
+    '                swap(&a[j], &a[j + 1]);',
+    '                swapped = 1;',
+    '            }',
+    '        }',
+    '        if (!swapped) break;',
+    '    }',
+    '}'
+  ];
+  return [
+    'void bubbleSort(int a[], int n) {',
+    '    for (int i = 0; i < n - 1; i++) {',
+    '        for (int j = 0; j < n - 1 - i; j++) {',
+    '            if (a[j] > a[j + 1]) {',
+    '                swap(&a[j], &a[j + 1]);',
+    '            }',
+    '        }',
+    '    }',
+    '}'
+  ];
+}
+
+function bsSkeleton(vals) {
+  var n = vals.length, s = '<svg class="qs" viewBox="0 0 ' + QVW + ' ' + QVH + '" width="' + QVW + '" style="width:100%;max-width:' + QVW + 'px;min-width:520px" role="img" aria-label="Array bars">';
+  s += '<line class="base" x1="' + (QX0 - 10) + '" y1="' + BASE + '" x2="' + (colX(n - 1) + BW + 10) + '" y2="' + BASE + '"/>';
+  for (var p = 0; p < n; p++) s += '<text class="idx" x="' + (colX(p) + BW / 2) + '" y="' + (BASE + 18) + '" text-anchor="middle">' + p + '</text>';
+  s += '<g id="bars">';
+  for (var id = 0; id < n; id++) {
+    var h = vals[id] * UNIT;
+    s += '<g class="bar" id="b' + id + '" style="transform:translate(' + colX(id) + 'px,0)"><rect x="0" y="' + (BASE - h) + '" width="' + BW + '" height="' + h + '" rx="3"/>' +
+      '<text x="' + (BW / 2) + '" y="' + (BASE - h - 7) + '" text-anchor="middle">' + vals[id] + '</text></g>';
+  }
+  s += '</g><g id="over"></g></svg>';
+  return s;
+}
+
+var TRACE = {
+  getCode: function () { return bsCode(document.getElementById('selVersion').value); },
+  hl: function (s) {
+    return esc(s)
+      .replace(/\b(bubbleSort|swap)\b/g, '<span class="fn">$1</span>')
+      .replace(/\b(void|int|if|for|break)\b/g, '<span class="kw">$1</span>');
+  },
+  simulate: function () {
+    return simulate(document.getElementById('selVersion').value, +document.getElementById('selInput').value);
+  },
+  render: function (s) {
+    var stage = document.getElementById('stage'), sig = s.vals.join(',');
+    if (stage.getAttribute('data-sig') !== sig) {
+      stage.innerHTML = bsSkeleton(s.vals);
+      stage.setAttribute('data-sig', sig);
+    }
+    for (var p = 0; p < s.order.length; p++) {
+      var g = document.getElementById('b' + s.order[p]);
+      g.setAttribute('class', barClass(s, p));
+      g.style.transform = 'translate(' + colX(p) + 'px,0)';
+    }
+    document.getElementById('over').innerHTML = overlayHTML(s);
+    document.getElementById('ptable').innerHTML = tableHTML(s);
+    document.getElementById('formula').innerHTML = formulaHTML(s);
+  }
+};
+
+</script>
+<script src="../../assets/player.js"></script>
+</body>
+</html>

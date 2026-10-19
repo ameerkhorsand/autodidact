@@ -1,0 +1,277 @@
+{
+  "site": {
+    "title": "Autodidact",
+    "intro": "Learn on your own terms. Pick a subject and work through it one step at a time.",
+    "searchPlaceholder": "Search subjects and topics"
+  },
+  "divisions": [
+    {
+      "id": "programming-and-theory",
+      "name": "Programming and Theory",
+      "columns": 3
+    },
+    {
+      "id": "hardware-and-systems",
+      "name": "Hardware and Systems",
+      "columns": 3
+    },
+    {
+      "id": "data-and-intelligence",
+      "name": "Data and Intelligence",
+      "columns": 2
+    }
+  ],
+  "subjects": [
+    {
+      "id": "fundamentals-of-programming",
+      "name": "Fundamentals of Programming",
+      "division": "programming-and-theory",
+      "description": "Program flow, functions, recursion, pointers, and data types.",
+      "keywords": "fop programming c language basics",
+      "traces": []
+    },
+    {
+      "id": "data-structures-and-algorithms",
+      "name": "Data Structures and Algorithms",
+      "division": "programming-and-theory",
+      "description": "Lists, trees, graphs, sorting, and the cost of each operation.",
+      "keywords": "dsa ds algo algorithms data structure list tree graph sort",
+      "chapters": [
+        {
+          "number": 1,
+          "title": "Fundamentals, Asymptotic Notations and Time Optimization"
+        },
+        {
+          "number": 2,
+          "title": "Divide and Conquer"
+        },
+        {
+          "number": 3,
+          "title": "Data Structures"
+        },
+        {
+          "number": 4,
+          "title": "Sorting Algorithms"
+        },
+        {
+          "number": 5,
+          "title": "Graphs"
+        }
+      ],
+      "traces": [
+        {
+          "file": "floyd-cycle-detection.html",
+          "chapter": 2,
+          "name": "Floyd's cycle detection",
+          "description": "Find a cycle with two pointers. Then find the node where the cycle starts. The proof is on the page.",
+          "tags": [
+            "Linked list",
+            "Two pointers",
+            "Formula"
+          ],
+          "keywords": "floyd tortoise hare slow fast loop cycle detect linked list start"
+        },
+        {
+          "file": "josephus.html",
+          "chapter": 2,
+          "name": "Josephus problem",
+          "description": "Remove every k-th person from a circular linked list. Compare the result with the recurrence and the closed form.",
+          "tags": [
+            "Circular list",
+            "Formula"
+          ],
+          "keywords": "josephus survivor circle elimination circular list k skip"
+        },
+        {
+          "file": "array-address.html",
+          "chapter": 3,
+          "name": "Address of an element in a 2D or 3D array",
+          "description": "Count the elements before A[i][j][k]. See the skipped planes, lines, and elements in an array view and in memory. Choose row-major or column-major order.",
+          "tags": [
+            "Arrays",
+            "Memory",
+            "Formula"
+          ],
+          "keywords": "array address 2d 3d two dimensional three dimensional row major column major offset index base element size memory layout"
+        },
+        {
+          "file": "linked-list-reversal.html",
+          "chapter": 3,
+          "name": "Reverse a singly linked list",
+          "description": "Trace the recursive function call by call. Watch each link turn around as the calls return.",
+          "tags": [
+            "Linked list",
+            "Recursion"
+          ],
+          "keywords": "reverse reversal invert singly one way list pointer recursion"
+        },
+        {
+          "file": "doubly-linked-list-insert.html",
+          "chapter": 3,
+          "name": "Insert a node between two nodes of a doubly linked list",
+          "description": "Follow each pointer change that puts a new node between its two neighbors. Choose the position in the list.",
+          "tags": [
+            "Doubly linked list",
+            "Pointers"
+          ],
+          "keywords": "dll two way list insert add node between prev next pointers"
+        },
+        {
+          "file": "tree-from-preorder-postorder.html",
+          "chapter": 3,
+          "name": "Build a full binary tree from preorder and postorder",
+          "description": "Watch the preorder and postorder ranges split at each call. See the tree grow, the call stack, and the formula for the split.",
+          "tags": [
+            "Binary tree",
+            "Recursion",
+            "Formula"
+          ],
+          "keywords": "construct build reconstruct rebuild binary tree preorder postorder traversal full tree"
+        },
+        {
+          "file": "bst-insertion-orders.html",
+          "chapter": 3,
+          "name": "Count the insertion orders that build a BST",
+          "description": "Count how many insertion orders give one fixed binary search tree. Watch the recursion combine the subtrees with T(n) = T(n1) · T(n2) · (n1 + n2)! / (n1! · n2!).",
+          "tags": [
+            "BST",
+            "Counting",
+            "Recursion",
+            "Formula"
+          ],
+          "keywords": "binary search tree bst insertion order permutation permutations sequences count how many different orders same tree combinations binomial interleave shuffle"
+        },
+        {
+          "file": "avl-tree-rotations.html",
+          "chapter": 3,
+          "name": "AVL tree rotations",
+          "description": "See how insert and delete break the balance and how the four rotations (LL, RR, LR, RL) repair it. Hard examples, balance factors, and a formula panel.",
+          "tags": [
+            "AVL tree",
+            "Rotation",
+            "Formula"
+          ],
+          "keywords": "avl balanced balance factor rotation rotate ll rr lr rl single double insert delete bst height"
+        },
+        {
+          "file": "order-statistic-tree.html",
+          "chapter": 3,
+          "name": "Order-statistic tree: Select and Rank",
+          "description": "Store the subtree size in each node. Then find the i-th smallest key, or the position of a key, in O(h) time. Two versions of Rank: bottom-up and top-down.",
+          "tags": [
+            "Order statistics",
+            "BST",
+            "Formula"
+          ],
+          "keywords": "order statistic select rank kth smallest os tree size augmented bst"
+        },
+        {
+          "file": "red-black-tree-insertion.html",
+          "chapter": 3,
+          "name": "Red-black tree insertion",
+          "description": "Insert a red node, then fix the colors. Follow the four cases: the root, a red uncle, a black uncle with a bend, and a black uncle with a line. Hard examples and a formula panel.",
+          "tags": [
+            "Red-black tree",
+            "Rotation",
+            "Formula"
+          ],
+          "keywords": "red black rb tree rbt insert insertion recolor uncle case 1 2 3 rotation fix"
+        },
+        {
+          "file": "bubble-sort.html",
+          "chapter": 4,
+          "name": "Bubble sort",
+          "description": "Watch neighbors swap as the largest values move to the right. Choose the version with or without the early-exit flag. Compare the counts with the formulas.",
+          "tags": [
+            "Sorting",
+            "Formula"
+          ],
+          "keywords": "bubble sort swap adjacent flag early exit"
+        },
+        {
+          "file": "insertion-sort.html",
+          "chapter": 4,
+          "name": "Insertion sort",
+          "description": "Hold the key aside, slide larger values to the right, and drop the key into the free place. Choose linear or binary search for the place. Compare the counts with the formulas.",
+          "tags": [
+            "Sorting",
+            "Formula"
+          ],
+          "keywords": "insertion sort key shift binary search"
+        },
+        {
+          "file": "merge-sort.html",
+          "chapter": 4,
+          "name": "Merge sort",
+          "description": "Split the range, sort each half, and merge the halves through a tmp array. See the call stack, the pointers i, j, k, and the comparison count against the best and worst cases.",
+          "tags": [
+            "Sorting",
+            "Recursion",
+            "Formula"
+          ],
+          "keywords": "merge sort divide conquer merge two sorted halves tmp temporary array stable recursion"
+        },
+        {
+          "file": "quicksort.html",
+          "chapter": 4,
+          "name": "QuickSort",
+          "description": "Watch partition split the array around a pivot. Choose the partition style and the input. See the call stack and the comparison count.",
+          "tags": [
+            "Sorting",
+            "Recursion",
+            "Formula"
+          ],
+          "keywords": "quick sort partition pivot lomuto hoare divide conquer"
+        }
+      ]
+    },
+    {
+      "id": "formal-languages-and-automata",
+      "name": "Formal Languages and Automata",
+      "division": "programming-and-theory",
+      "description": "Finite automata, regular languages, context-free grammars, and Turing machines.",
+      "keywords": "fla toc automata dfa nfa grammar turing language",
+      "traces": []
+    },
+    {
+      "id": "digital-design",
+      "name": "Digital Design",
+      "division": "hardware-and-systems",
+      "description": "Logic gates, combinational and sequential circuits, and state machines.",
+      "keywords": "logic circuit gates flip flop dd",
+      "traces": []
+    },
+    {
+      "id": "computer-architecture",
+      "name": "Computer Architecture",
+      "division": "hardware-and-systems",
+      "description": "Processor design, pipelines, the memory hierarchy, and cache.",
+      "keywords": "ca cpu pipeline cache memory organization",
+      "traces": []
+    },
+    {
+      "id": "operating-systems",
+      "name": "Operating Systems",
+      "division": "hardware-and-systems",
+      "description": "Processes, scheduling, synchronization, memory, and file systems.",
+      "keywords": "os process scheduling deadlock",
+      "traces": []
+    },
+    {
+      "id": "statistics",
+      "name": "Statistics",
+      "division": "data-and-intelligence",
+      "description": "Probability, distributions, estimation, and hypothesis tests.",
+      "keywords": "stats probability",
+      "traces": []
+    },
+    {
+      "id": "artificial-intelligence",
+      "name": "Artificial Intelligence",
+      "division": "data-and-intelligence",
+      "description": "Search, logic, probabilistic reasoning, and learning.",
+      "keywords": "ai ml machine learning search",
+      "traces": []
+    }
+  ]
+}

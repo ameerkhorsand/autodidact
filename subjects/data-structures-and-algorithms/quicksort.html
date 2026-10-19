@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>QuickSort</title>
+<link rel="stylesheet" href="../../assets/base.css">
+<link rel="stylesheet" href="../../assets/trace.css">
+<script src="../../assets/theme.js"></script>
+</head>
+<body>
+
+<div class="wrap">
+  <a class="back" href="index.html">&larr; Data Structures and Algorithms</a>
+  <header>
+    <div class="intro">
+      <h1>QuickSort</h1>
+      <p>QuickSort picks a pivot. The partition step puts smaller elements on its left and larger ones on its right. Then the function sorts each side the same way. Choose a partition style and an input. The bars slide when two elements swap.</p>
+    </div>
+    <div class="picks"><div class="pick"><label class="label" for="selScheme">Partition style</label><select id="selScheme" class="param"><option value="lomuto" selected>Lomuto, last element is the pivot</option><option value="hoare">Hoare, first element is the pivot</option></select></div><div class="pick"><label class="label" for="selInput">Input</label><select id="selInput" class="param"><option value="0" selected>Mixed</option><option value="1">Already sorted</option><option value="2">Reverse sorted</option><option value="3">Many repeats</option></select></div></div>
+  </header>
+
+  <section class="panel controls" aria-label="Playback controls">
+    <button type="button" class="btn" id="reset">Reset</button>
+    <button type="button" class="btn" id="prev">Back</button>
+    <button type="button" class="btn primary" id="play">Play</button>
+    <button type="button" class="btn" id="next">Next</button>
+    <input type="range" class="scrub" id="scrub" min="0" max="1" value="0" aria-label="Step">
+    <span class="stepno" id="stepno">Step 0 of 0</span>
+    <label class="spd"><span class="label">Speed</span>
+      <select id="speed">
+        <option value="2600">Slow</option>
+        <option value="1600" selected>Normal</option>
+        <option value="800">Fast</option>
+      </select>
+    </label>
+  </section>
+
+  <div class="layout">
+    <section class="panel p-code">
+      <h2>Code</h2>
+      <ol class="code" id="code" aria-label="Source code"></ol>
+    </section>
+
+    <section class="panel p-diagram">
+      <h2>Diagram</h2>
+      <div class="stage" id="stage"></div>
+      <div class="legend"><span><span class="sw le"></span>Not more than the pivot</span><span><span class="sw gt"></span>More than the pivot</span><span><span class="sw piv"></span>Pivot</span><span><span class="sw fin"></span>In its final place</span></div>
+    </section>
+
+    <section class="panel p-table">
+      <h2>Pointers</h2>
+      <ul class="ptable" id="ptable" aria-label="Pointer values"></ul>
+      <h2 class="sub">Call stack</h2>
+      <ul class="frames" id="frames" aria-label="Call stack, newest call first"></ul>
+    </section>
+
+    <section class="panel p-note">
+      <div class="note-box">
+        <div class="eyebrow"><span id="title">Start</span><span id="lineref"></span></div>
+        <p class="note" id="note" aria-live="polite"></p>
+      </div>
+    </section>
+
+    <section class="panel p-formula">
+      <h2>Formula</h2>
+      <div class="formula" id="formula"></div>
+    </section>
+  </div>
+</div>
+
+<script>
+//SIM-START
+function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+var PRESETS = [
+  [7, 2, 9, 4, 3, 8, 1, 6],
+  [1, 2, 3, 4, 5, 6, 7, 8],
+  [8, 7, 6, 5, 4, 3, 2, 1],
+  [4, 2, 4, 1, 4, 3, 2, 4]
+];
+
+function simulate(scheme, pi) {
+  var vals = PRESETS[pi].slice(), n = vals.length, i0;
+  var order = [], fin = [];
+  for (i0 = 0; i0 < n; i0++) { order.push(i0); fin.push(false); }
+  var stack = [], steps = [], cmp = 0, swp = 0;
+  var cur = { lo: null, hi: null, i: null, j: null, pivotPos: null, pivotVal: null, part: false };
+  function A(pos) { return vals[order[pos]]; }
+  function swapPos(x, y) {
+    if (x === y) return;
+    var t = order[x]; order[x] = order[y]; order[y] = t; swp++;
+  }
+  function setWin() {
+    if (stack.length) { cur.lo = stack[stack.length - 1].lo; cur.hi = stack[stack.length - 1].hi; }
+    else { cur.lo = null; cur.hi = null; }
+  }
+  function snap(o) {
+    steps.push({
+      lines: o.lines || [], title: o.title, note: o.note, scheme: scheme,
+      vals: vals.slice(), order: order.slice(), fin: fin.slice(),
+      stack: stack.map(function (f) { return { lo: f.lo, hi: f.hi, p: f.p }; }),
+      lo: cur.lo, hi: cur.hi, i: cur.i, j: cur.j,
+      pivotPos: cur.pivotPos, pivotVal: cur.pivotVal, part: cur.part,
+      swapped: o.swapped || null, cmp: cmp, swp: swp, rows: o.rows || [], done: !!o.done
+    });
+  }
+
+  function partitionLomuto(lo, hi) {
+    var pivot = A(hi);
+    cur.part = true; cur.pivotPos = hi; cur.pivotVal = pivot; cur.i = null; cur.j = null;
+    snap({ lines: [10], title: 'Choose the pivot', rows: ['pivot'], note: 'pivot = a[hi] = ' + pivot + '. The last element of the range is the pivot.' });
+    var i = lo - 1; cur.i = i;
+    snap({ lines: [11], title: 'Set i', rows: ['i'], note: 'i = lo − 1 = ' + i + '. i marks the end of the left part. The left part holds elements that are not more than the pivot. It is empty now.' });
+    for (var j = lo; j < hi; j++) {
+      cur.j = j; cmp++;
+      var v = A(j), le = v <= pivot;
+      snap({ lines: [12, 13], title: 'Compare', rows: ['j', 'comparisons'], note: 'j = ' + j + '. Compare a[j] = ' + v + ' with the pivot ' + pivot + '. Is ' + v + ' <= ' + pivot + '? ' + (le ? 'Yes.' : 'No. Nothing moves.') });
+      if (le) {
+        i++; cur.i = i;
+        var same = i === j;
+        swapPos(i, j);
+        snap({ lines: [14, 15], title: 'Grow the left part', rows: ['i', 'swaps'], swapped: same ? null : [i, j],
+          note: 'i = ' + i + '. Swap a[i] and a[j]. ' + (same ? 'i and j are the same place, so nothing changes.' : 'The two values trade places.') + ' The left part now ends at position ' + i + '.' });
+      }
+    }
+    cur.j = hi;
+    swapPos(i + 1, hi);
+    cur.pivotPos = i + 1; fin[i + 1] = true;
+    snap({ lines: [18], title: 'Place the pivot', rows: ['swaps'], swapped: (i + 1 === hi) ? null : [i + 1, hi],
+      note: 'swap(a[i + 1], a[hi]). The pivot goes to position ' + (i + 1) + '. Everything left of it is not more than the pivot. Everything right of it is more than the pivot.' });
+    snap({ lines: [19], title: 'Return', note: 'return i + 1. partition returns ' + (i + 1) + '. The pivot is in its final place. Back in quicksort, p = ' + (i + 1) + '.' });
+    return i + 1;
+  }
+
+  function partitionHoare(lo, hi) {
+    var pivot = A(lo);
+    cur.part = true; cur.pivotPos = lo; cur.pivotVal = pivot; cur.i = null; cur.j = null;
+    snap({ lines: [10], title: 'Choose the pivot', rows: ['pivot'], note: 'pivot = a[lo] = ' + pivot + '. The first element of the range is the pivot.' });
+    var i = lo, j = hi + 1; cur.i = i; cur.j = j;
+    snap({ lines: [11], title: 'Set i and j', rows: ['i', 'j'], note: 'i = lo = ' + i + ' and j = hi + 1 = ' + j + '. i will move right. j will move left.' });
+    while (true) {
+      while (true) {
+        i++; cur.i = i;
+        if (i <= hi) {
+          cmp++;
+          var v = A(i), go = v < pivot;
+          snap({ lines: [13], title: 'Move i right', rows: ['i', 'comparisons'], note: 'i = ' + i + '. a[i] = ' + v + (go ? ' is less than the pivot ' + pivot + '. i keeps moving right.' : ' is not less than the pivot ' + pivot + '. i stops here.') });
+          if (!go) break;
+        } else {
+          snap({ lines: [13], title: 'Move i right', rows: ['i'], note: 'i = ' + i + '. i is past hi. i stops here.' });
+          break;
+        }
+      }
+      while (true) {
+        j--; cur.j = j; cmp++;
+        var w = A(j), go2 = w > pivot;
+        snap({ lines: [14], title: 'Move j left', rows: ['j', 'comparisons'], note: 'j = ' + j + '. a[j] = ' + w + (go2 ? ' is more than the pivot ' + pivot + '. j keeps moving left.' : ' is not more than the pivot ' + pivot + '. j stops here.') });
+        if (!go2) break;
+      }
+      if (i >= j) {
+        snap({ lines: [15], title: 'Pointers cross', rows: ['i', 'j'], note: 'i = ' + i + ' and j = ' + j + '. i >= j, so the loop ends.' });
+        break;
+      }
+      swapPos(i, j);
+      snap({ lines: [15, 16], title: 'Swap', rows: ['swaps'], swapped: [i, j], note: 'i = ' + i + ' and j = ' + j + '. i < j, so the two elements are on the wrong sides. Swap a[i] and a[j].' });
+    }
+    swapPos(lo, j);
+    cur.pivotPos = j; fin[j] = true;
+    snap({ lines: [18], title: 'Place the pivot', rows: ['swaps'], swapped: lo === j ? null : [lo, j],
+      note: 'swap(a[lo], a[j]). The pivot goes to position ' + j + '. Everything left of it is not more than the pivot. Everything right of it is not less than the pivot.' });
+    snap({ lines: [19], title: 'Return', note: 'return j. partition returns ' + j + '. The pivot is in its final place. Back in quicksort, p = ' + j + '.' });
+    return j;
+  }
+
+  function rec(lo, hi, f) {
+    setWin();
+    cur.i = null; cur.j = null; cur.pivotPos = null; cur.pivotVal = null; cur.part = false;
+    if (lo > hi) {
+      snap({ lines: [2], title: 'Empty range', note: 'lo < hi is false, because lo = ' + lo + ' and hi = ' + hi + '. There are no elements. The call returns.' });
+      stack.pop(); setWin(); return;
+    }
+    if (lo === hi) {
+      fin[lo] = true;
+      snap({ lines: [2], title: 'One element', note: 'lo < hi is false, because lo = hi = ' + lo + '. One element is already sorted. It is in its final place. The call returns.' });
+      stack.pop(); setWin(); return;
+    }
+    snap({ lines: [2], title: 'Test', note: 'lo < hi is true. The range has ' + (hi - lo + 1) + ' elements, so the function goes on.' });
+    snap({ lines: [3], title: 'Call partition', note: 'Call partition(a, ' + lo + ', ' + hi + '). It puts the pivot in its final place and splits the other elements around it.' });
+    var p = scheme === 'lomuto' ? partitionLomuto(lo, hi) : partitionHoare(lo, hi);
+    f.p = p;
+    cur.part = false; cur.i = null; cur.j = null; cur.pivotPos = null; cur.pivotVal = null;
+    var f1 = { lo: lo, hi: p - 1, p: null };
+    stack.push(f1); setWin();
+    snap({ lines: [4], title: 'Sort the left part', note: 'quicksort(a, lo, p - 1) is quicksort(a, ' + lo + ', ' + (p - 1) + '). This call sorts everything left of the pivot.' });
+    rec(lo, p - 1, f1);
+    var f2 = { lo: p + 1, hi: hi, p: null };
+    stack.push(f2); setWin();
+    snap({ lines: [5], title: 'Sort the right part', note: 'quicksort(a, p + 1, hi) is quicksort(a, ' + (p + 1) + ', ' + hi + '). This call sorts everything right of the pivot.' });
+    rec(p + 1, hi, f2);
+    stack.pop(); setWin();
+  }
+
+  snap({ title: 'Start', note: 'The array has ' + n + ' numbers. quicksort(a, 0, ' + (n - 1) + ') sorts all of it. The bars show the values. Press Next or Play.' });
+  var top = { lo: 0, hi: n - 1, p: null };
+  stack.push(top); setWin();
+  snap({ lines: [1], title: 'First call', note: 'Call quicksort(a, 0, ' + (n - 1) + '). The call goes on the stack.' });
+  rec(0, n - 1, top);
+  cur.lo = null; cur.hi = null;
+  snap({ title: 'Sorted', done: true, note: 'All calls have returned. The array is sorted. This run used ' + cmp + ' comparisons and ' + swp + ' swaps.' });
+  return steps;
+}
+
+var QX0 = 76, BW = 56, BG = 10, BASE = 250, UNIT = 22, QVW = 680, QVH = 360;
+function colX(p) { return QX0 + p * (BW + BG); }
+
+function barClass(st, p) {
+  var c = 'bar';
+  if (st.fin[p]) c += ' fin';
+  else if (st.lo !== null && (p < st.lo || p > st.hi)) c += ' dim';
+  else if (st.part && p === st.pivotPos) c += ' piv';
+  else if (st.part) {
+    if (st.scheme === 'lomuto') {
+      if (p >= st.lo && p <= st.i) c += ' le';
+      else if (p > st.i && p < st.j) c += ' gt';
+      else if (p === st.j) c += ' cur';
+    } else {
+      if (p > st.lo && p < st.i) c += ' le';
+      else if (st.j !== null && p > st.j && p <= st.hi) c += ' gt';
+      else if (p === st.i || p === st.j) c += ' cur';
+    }
+  }
+  if (st.swapped && (st.swapped[0] === p || st.swapped[1] === p)) c += ' swp';
+  return c;
+}
+
+function overlayHTML(st) {
+  var out = '', n = st.vals.length;
+  if (st.lo !== null) {
+    var x1 = colX(st.lo), x2 = colX(st.hi) + BW, by = BASE + 30;
+    out += '<path class="brk" d="M' + x1 + ',' + (by - 5) + ' V' + by + ' H' + x2 + ' V' + (by - 5) + '"/>';
+  }
+  if (st.part && st.pivotVal !== null) {
+    var py = BASE - st.pivotVal * UNIT;
+    out += '<line class="pline" x1="' + (colX(st.lo) - 4) + '" y1="' + py + '" x2="' + (colX(st.hi) + BW + 4) + '" y2="' + py + '"/>' +
+      '<text class="plab" x="' + (colX(n - 1) + BW + 10) + '" y="' + (py + 4) + '">pivot ' + st.pivotVal + '</text>';
+  }
+  var tags = {};
+  function add(col, t, k) { (tags[col] = tags[col] || []).push({ t: t, k: k }); }
+  if (st.part) {
+    if (st.i !== null) add(st.i, 'i', 'pv');
+    if (st.j !== null) add(st.j, 'j', 'pn');
+  }
+  Object.keys(tags).forEach(function (col) {
+    var cx = colX(+col) + BW / 2;
+    tags[col].forEach(function (tg, k) {
+      var y = BASE + 50 + k * 24;
+      out += '<g class="tag ' + tg.k + '"><rect x="' + (cx - 15) + '" y="' + y + '" width="30" height="20" rx="4"/><text x="' + cx + '" y="' + (y + 14) + '" text-anchor="middle">' + tg.t + '</text></g>';
+    });
+    out += '<g class="tp ' + tags[col][0].k + '"><path class="hd" d="M' + (cx - 4.5) + ',' + (BASE + 47) + ' L' + cx + ',' + (BASE + 40) + ' L' + (cx + 4.5) + ',' + (BASE + 47) + ' Z"/></g>';
+  });
+  return out;
+}
+
+function tableHTML(st) {
+  function nv(v) { return v === null ? 'not set' : String(v); }
+  var rows = [
+    ['lo', nv(st.lo)], ['hi', nv(st.hi)],
+    ['pivot', st.part && st.pivotVal !== null ? String(st.pivotVal) : 'not set'],
+    ['i', st.part ? nv(st.i) : 'not set'], ['j', st.part ? nv(st.j) : 'not set'],
+    ['comparisons', String(st.cmp)], ['swaps', String(st.swp)]
+  ];
+  return rows.map(function (r) {
+    var unset = r[1] === 'not set';
+    return '<li class="pt' + (st.rows.indexOf(r[0]) >= 0 ? ' hi' : '') + '"><span class="k">' + esc(r[0]) + '</span><span class="v' + (unset ? ' unset' : '') + '">' + esc(r[1]) + '</span></li>';
+  }).join('');
+}
+
+function framesHTML(st) {
+  if (!st.stack.length) return '<li class="empty">Empty. ' + (st.done ? 'All calls have returned.' : 'The first call has not started.') + '</li>';
+  return st.stack.slice().reverse().map(function (f, idx) {
+    var depth = st.stack.length - idx;
+    var info = f.hi < f.lo ? 'no elements' : (f.p === null ? 'pivot not placed yet' : 'pivot placed at ' + f.p);
+    return '<li class="frame' + (idx === 0 ? ' top' : '') + '"><div class="fh"><span>quicksort(' + f.lo + ', ' + f.hi + ')</span><span>depth ' + depth + '</span></div><div class="fv"><span>' + info + '</span></div></li>';
+  }).join('');
+}
+
+function bestCmp(n) {
+  var memo = {};
+  function b(m) {
+    if (m <= 1) return 0;
+    if (memo[m] !== undefined) return memo[m];
+    return (memo[m] = (m - 1) + b(Math.floor((m - 1) / 2)) + b(Math.ceil((m - 1) / 2)));
+  }
+  return b(n);
+}
+function avgCmp(n) {
+  var H = 0;
+  for (var k = 1; k <= n; k++) H += 1 / k;
+  return 2 * (n + 1) * H - 4 * n;
+}
+
+function formulaHTML(st) {
+  var n = st.vals.length, best = bestCmp(n), avg = avgCmp(n), worst = n * (n - 1) / 2;
+  var left = '<div><p class="f-h">Recurrence</p>' +
+    '<p class="f-m">T(n) = T(k) + T(n − k − 1) + (n − 1)</p>' +
+    '<p class="f-note">k is the number of elements left of the pivot. Partitioning n elements takes n − 1 comparisons with the Lomuto style.</p>' +
+    '<p class="f-h">Best case</p>' +
+    '<p class="f-m">T(n) = 2T(n / 2) + n, so T(n) = <span class="th">Θ</span>(n log n)</p>' +
+    '<p class="f-note">The pivot is the median every time. Each split is even.</p>' +
+    '<p class="f-h">Worst case</p>' +
+    '<p class="f-m">T(n) = T(n − 1) + (n − 1) = n(n − 1) / 2, so <span class="th">Θ</span>(n²)</p>' +
+    '<p class="f-note">The pivot is the smallest or the largest element every time. Sorted input does this when the pivot is the first or the last element.</p>' +
+    '<p class="f-h">Average case</p>' +
+    '<p class="f-m">T(n) = (n − 1) + (1/n) Σ [T(k) + T(n − 1 − k)], k = 0 to n − 1</p>' +
+    '<p class="f-m">T(n) = 2(n + 1)H<sub>n</sub> − 4n ≈ 2n ln n</p>' +
+    '<p class="f-note">H<sub>n</sub> = 1 + 1/2 + … + 1/n. The stack is O(log n) deep on average and O(n) deep in the worst case.</p></div>';
+  var right = '<div><p class="f-h">With n = ' + n + '</p><div class="tblwrap"><table class="jt">' +
+    '<tr><th>Case</th><th>Comparisons</th></tr>' +
+    '<tr><td style="text-align:left">Best, median pivot every time</td><td>' + best + '</td></tr>' +
+    '<tr><td style="text-align:left">Average, 2(n + 1)H<sub>n</sub> − 4n</td><td>' + avg.toFixed(1) + '</td></tr>' +
+    '<tr><td style="text-align:left">Worst, n(n − 1) / 2</td><td>' + worst + '</td></tr>' +
+    '<tr><td class="last" style="text-align:left">This run' + (st.done ? '' : ' so far') + '</td><td class="last">' + st.cmp + '</td></tr></table></div>' +
+    '<p class="f-note">' + (st.scheme === 'lomuto'
+      ? 'These counts are for the Lomuto style.'
+      : 'The best, average, and worst counts are for the Lomuto style. The Hoare style compares with both pointers, so its count can be much higher. Sorted input is the clearest case.') + '</p>' +
+    (st.done ? '<p class="f-ok">The array is sorted after ' + st.cmp + ' comparisons' + (st.scheme === 'lomuto' ? '. The worst case for ' + n + ' elements is ' + worst + '.' : '.') + '</p>' : '') +
+    '</div>';
+  return left + right;
+}
+//SIM-END
+
+function qsCode(scheme) {
+  var head = [
+    'void quicksort(int a[], int lo, int hi) {',
+    '    if (lo < hi) {',
+    '        int p = partition(a, lo, hi);',
+    '        quicksort(a, lo, p - 1);',
+    '        quicksort(a, p + 1, hi);',
+    '    }',
+    '}',
+    ''
+  ];
+  var lomuto = [
+    'int partition(int a[], int lo, int hi) {',
+    '    int pivot = a[hi];',
+    '    int i = lo - 1;',
+    '    for (int j = lo; j < hi; j++) {',
+    '        if (a[j] <= pivot) {',
+    '            i++;',
+    '            swap(&a[i], &a[j]);',
+    '        }',
+    '    }',
+    '    swap(&a[i + 1], &a[hi]);',
+    '    return i + 1;',
+    '}'
+  ];
+  var hoare = [
+    'int partition(int a[], int lo, int hi) {',
+    '    int pivot = a[lo];',
+    '    int i = lo, j = hi + 1;',
+    '    while (1) {',
+    '        do { i++; } while (i <= hi && a[i] < pivot);',
+    '        do { j--; } while (a[j] > pivot);',
+    '        if (i >= j) break;',
+    '        swap(&a[i], &a[j]);',
+    '    }',
+    '    swap(&a[lo], &a[j]);',
+    '    return j;',
+    '}'
+  ];
+  return head.concat(scheme === 'lomuto' ? lomuto : hoare);
+}
+
+function qsSkeleton(vals) {
+  var n = vals.length, s = '<svg class="qs" viewBox="0 0 ' + QVW + ' ' + QVH + '" width="' + QVW + '" style="width:100%;max-width:' + QVW + 'px;min-width:520px" role="img" aria-label="Array bars">';
+  s += '<line class="base" x1="' + (QX0 - 10) + '" y1="' + BASE + '" x2="' + (colX(n - 1) + BW + 10) + '" y2="' + BASE + '"/>';
+  for (var p = 0; p < n; p++) s += '<text class="idx" x="' + (colX(p) + BW / 2) + '" y="' + (BASE + 18) + '" text-anchor="middle">' + p + '</text>';
+  s += '<g id="bars">';
+  for (var id = 0; id < n; id++) {
+    var h = vals[id] * UNIT;
+    s += '<g class="bar" id="b' + id + '" style="transform:translate(' + colX(id) + 'px,0)"><rect x="0" y="' + (BASE - h) + '" width="' + BW + '" height="' + h + '" rx="3"/>' +
+      '<text x="' + (BW / 2) + '" y="' + (BASE - h - 7) + '" text-anchor="middle">' + vals[id] + '</text></g>';
+  }
+  s += '</g><g id="over"></g></svg>';
+  return s;
+}
+
+var TRACE = {
+  getCode: function () { return qsCode(document.getElementById('selScheme').value); },
+  hl: function (s) {
+    return esc(s)
+      .replace(/\b(quicksort|partition|swap)\b/g, '<span class="fn">$1</span>')
+      .replace(/\b(void|int|if|for|while|do|break|return)\b/g, '<span class="kw">$1</span>');
+  },
+  simulate: function () {
+    return simulate(document.getElementById('selScheme').value, +document.getElementById('selInput').value);
+  },
+  render: function (s) {
+    var stage = document.getElementById('stage'), sig = s.vals.join(',');
+    if (stage.getAttribute('data-sig') !== sig) {
+      stage.innerHTML = qsSkeleton(s.vals);
+      stage.setAttribute('data-sig', sig);
+    }
+    for (var p = 0; p < s.order.length; p++) {
+      var g = document.getElementById('b' + s.order[p]);
+      g.setAttribute('class', barClass(s, p));
+      g.style.transform = 'translate(' + colX(p) + 'px,0)';
+    }
+    document.getElementById('over').innerHTML = overlayHTML(s);
+    document.getElementById('ptable').innerHTML = tableHTML(s);
+    document.getElementById('frames').innerHTML = framesHTML(s);
+    document.getElementById('formula').innerHTML = formulaHTML(s);
+  }
+};
+
+</script>
+<script src="../../assets/player.js"></script>
+</body>
+</html>

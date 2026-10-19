@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Insertion Sort</title>
+<link rel="stylesheet" href="../../assets/base.css">
+<link rel="stylesheet" href="../../assets/trace.css">
+<script src="../../assets/theme.js"></script>
+</head>
+<body>
+
+<div class="wrap">
+  <a class="back" href="index.html">&larr; Data Structures and Algorithms</a>
+  <header>
+    <div class="intro">
+      <h1>Insertion sort</h1>
+      <p>Insertion sort keeps a sorted part at the left. Each pass takes the next value, the key, and holds it aside. Larger values in the sorted part slide one place to the right. Then the key goes into the free place. The binary version first finds the place of the key with binary search. Choose a version and an input. The bars slide as the values move.</p>
+    </div>
+    <div class="picks"><div class="pick"><label class="label" for="selVersion">Version</label><select id="selVersion" class="param"><option value="std" selected>Standard (linear search)</option><option value="binary">Binary search for the place</option></select></div><div class="pick"><label class="label" for="selInput">Input</label><select id="selInput" class="param"><option value="0" selected>Mixed</option><option value="1">Already sorted</option><option value="2">Reverse sorted</option><option value="3">Nearly sorted</option></select></div></div>
+  </header>
+
+  <section class="panel controls" aria-label="Playback controls">
+    <button type="button" class="btn" id="reset">Reset</button>
+    <button type="button" class="btn" id="prev">Back</button>
+    <button type="button" class="btn primary" id="play">Play</button>
+    <button type="button" class="btn" id="next">Next</button>
+    <input type="range" class="scrub" id="scrub" min="0" max="1" value="0" aria-label="Step">
+    <span class="stepno" id="stepno">Step 0 of 0</span>
+    <label class="spd"><span class="label">Speed</span>
+      <select id="speed">
+        <option value="2600">Slow</option>
+        <option value="1600" selected>Normal</option>
+        <option value="800">Fast</option>
+      </select>
+    </label>
+  </section>
+
+  <div class="layout">
+    <section class="panel p-code">
+      <h2>Code</h2>
+      <ol class="code" id="code" aria-label="Source code"></ol>
+    </section>
+
+    <section class="panel p-diagram">
+      <h2>Diagram</h2>
+      <div class="stage" id="stage"></div>
+      <div class="legend"><span><span class="sw piv"></span>key, held aside</span><span><span class="sw cmp"></span>a[j], compared with the key</span><span><span class="sw swp"></span>Just moved</span><span><span class="sw le"></span>Sorted part</span><span><svg viewBox="0 0 20 16" aria-hidden="true"><rect x="2" y="2" width="16" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 2"/></svg>Free position</span><span><span class="sw le" style="opacity:.45"></span>Outside the search range (binary version)</span></div>
+    </section>
+
+    <section class="panel p-table">
+      <h2>Pointers</h2>
+      <ul class="ptable" id="ptable" aria-label="Pointer values"></ul>
+    </section>
+
+    <section class="panel p-note">
+      <div class="note-box">
+        <div class="eyebrow"><span id="title">Start</span><span id="lineref"></span></div>
+        <p class="note" id="note" aria-live="polite"></p>
+      </div>
+    </section>
+
+    <section class="panel p-formula">
+      <h2>Formula</h2>
+      <div class="formula" id="formula"></div>
+    </section>
+  </div>
+</div>
+
+<script>
+//SIM-START
+function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+var PRESETS = [
+  [5, 1, 4, 2, 8, 3, 7, 6],
+  [1, 2, 3, 4, 5, 6, 7, 8],
+  [8, 7, 6, 5, 4, 3, 2, 1],
+  [1, 2, 4, 3, 5, 6, 8, 7]
+];
+
+function inversions(a) {
+  var c = 0;
+  for (var p = 0; p < a.length; p++) for (var q = p + 1; q < a.length; q++) if (a[p] > a[q]) c++;
+  return c;
+}
+// z = number of keys that are strictly smaller than every value to their left.
+// For these keys the standard loop ends because j = -1, so the last comparison does not happen.
+function zCount(a) {
+  var z = 0;
+  for (var i = 1; i < a.length; i++) {
+    var all = true;
+    for (var j = 0; j < i; j++) if (!(a[j] > a[i])) { all = false; break; }
+    if (all) z++;
+  }
+  return z;
+}
+function cmpIns(a) { return inversions(a) + (a.length - 1) - zCount(a); }
+
+function fl2(x) { return 31 - Math.clz32(x); }
+// Comparisons of the binary version, counted on a plain sorted list.
+function binCmp(a) {
+  var b = [a[0]], c = 0;
+  for (var i = 1; i < a.length; i++) {
+    var key = a[i], lo = 0, hi = b.length;
+    while (lo < hi) { var m = (lo + hi) >> 1; c++; if (b[m] > key) hi = m; else lo = m + 1; }
+    b.splice(lo, 0, key);
+  }
+  return c;
+}
+function binMax(n) { var s = 0; for (var i = 1; i < n; i++) s += fl2(i) + 1; return s; }
+function binMin(n) { var s = 0; for (var i = 1; i < n; i++) s += fl2(i + 1); return s; }
+
+function simulate(version, pi) {
+  var bin = version === 'binary';
+  var vals = PRESETS[pi].slice(), n = vals.length, k;
+  var order = [];
+  for (k = 0; k < n; k++) order.push(k);
+  var keyId = null, hole = null, cmp = 0, shifts = 0, steps = [];
+  var cur = { i: null, j: null, lo: null, hi: null, mid: null, pass: 0 };
+  function val(p) { return vals[order[p]]; }
+  function snap(o) {
+    steps.push({
+      lines: o.lines || [], title: o.title, note: o.note, n: n, version: version,
+      vals: vals.slice(), order: order.slice(), keyId: keyId, hole: hole,
+      i: cur.i, j: cur.j, lo: cur.lo, hi: cur.hi, mid: cur.mid, pass: cur.pass,
+      bound: o.done ? n : (cur.i === null ? 1 : cur.i + 1), search: !!o.search,
+      cmpAt: o.cmpAt === undefined ? null : o.cmpAt, moved: o.moved === undefined ? null : o.moved,
+      cmp: cmp, shifts: shifts, rows: o.rows || [], done: !!o.done
+    });
+  }
+  snap({ title: 'Start', note: 'The array has ' + n + ' numbers. The first number alone is a sorted part of size 1. Each pass takes the next number, the key, ' +
+    (bin ? 'finds its place with binary search, and inserts it.' : 'and inserts it into the sorted part.') + ' Press Next or Play.' });
+
+  for (var i = 1; i < n; i++) {
+    cur.i = i; cur.j = null; cur.lo = null; cur.hi = null; cur.mid = null; cur.pass = i;
+    snap({ lines: [2], title: 'Start pass ' + i, rows: ['pass', 'i'],
+      note: 'Pass ' + i + ' starts. i = ' + i + '. The sorted part is ' + (i === 1 ? 'position 0' : 'position 0 to position ' + (i - 1)) + '. The value at position ' + i + ' will go into it.' });
+    keyId = order[i]; order[i] = null; hole = i;
+    snap({ lines: [3], title: 'Take the key', rows: ['key'],
+      note: 'key = a[i] = ' + vals[keyId] + '. The value moves aside into key. Position ' + i + ' is free now.' });
+
+    if (!bin) {
+      var j = i - 1; cur.j = j;
+      snap({ lines: [4], title: 'Set j', rows: ['j', 'a[j]'], note: 'j = i − 1 = ' + j + '. j points to the last value of the sorted part.' });
+      while (true) {
+        if (j < 0) {
+          snap({ lines: [5], title: 'Loop test', rows: ['j'], note: 'j = −1, so j >= 0 is false. The loop ends. The program does not read a[j].' });
+          break;
+        }
+        cmp++;
+        var aj = val(j), key = vals[keyId], gt = aj > key;
+        snap({ lines: [5], title: 'Compare', cmpAt: j, rows: ['a[j]', 'key', 'comparisons'],
+          note: 'j >= 0 is true. Is a[j] = ' + aj + ' greater than key = ' + key + '? ' + (gt ? 'Yes. The loop goes on.' : 'No. The loop ends.') });
+        if (!gt) break;
+        var mid0 = order[j]; order[j + 1] = mid0; order[j] = null; hole = j; shifts++; j--; cur.j = j;
+        snap({ lines: [6, 7], title: 'Shift right', moved: mid0, rows: ['j', 'a[j]', 'shifts'],
+          note: 'a[j + 1] = a[j]. The value ' + vals[mid0] + ' moves one place to the right. Then j-- makes j = ' + j + '. The free position is now position ' + (j + 1) + '.' });
+      }
+      order[j + 1] = keyId; var placed = keyId; keyId = null; hole = null;
+      snap({ lines: [9], title: 'Insert the key', moved: placed, rows: ['key'],
+        note: 'a[j + 1] = key. The key goes to position ' + (j + 1) + '. The sorted part now has ' + (i + 1) + ' values.' });
+    } else {
+      var lo = 0, hi = i; cur.lo = lo; cur.hi = hi;
+      snap({ lines: [4], title: 'Set the search range', search: true, rows: ['lo', 'hi'],
+        note: 'lo = 0 and hi = i = ' + i + '. The search looks at position lo to position hi − 1. These positions hold the sorted part.' });
+      while (lo < hi) {
+        var mid = Math.floor((lo + hi) / 2); cur.mid = mid;
+        snap({ lines: [5, 6], title: 'Find the middle', search: true, cmpAt: mid, rows: ['mid'],
+          note: 'lo < hi is true. mid = (lo + hi) / 2 = ' + mid + '. The search compares the key with the value at position ' + mid + '.' });
+        cmp++;
+        var am = val(mid), kv = vals[keyId], g2 = am > kv;
+        if (g2) hi = mid; else lo = mid + 1;
+        cur.lo = lo; cur.hi = hi;
+        snap({ lines: g2 ? [7] : [7, 8], title: 'Compare', search: true, cmpAt: mid, rows: g2 ? ['hi', 'comparisons'] : ['lo', 'comparisons'],
+          note: 'Is a[mid] = ' + am + ' greater than key = ' + kv + '? ' + (g2
+            ? 'Yes. The key belongs left of position ' + mid + '. hi = mid = ' + hi + '.'
+            : 'No. The key belongs right of position ' + mid + '. lo = mid + 1 = ' + lo + '.') });
+      }
+      cur.mid = null;
+      snap({ lines: [5], title: 'Search ends', search: true, rows: ['lo', 'hi'],
+        note: 'lo < hi is false, because lo = hi = ' + lo + '. The key belongs at position ' + lo + '.' });
+      var tgt = lo, j2 = i;
+      if (j2 <= tgt) {
+        cur.j = j2;
+        snap({ lines: [10], title: 'No shift needed', rows: ['j'], note: 'j = i = ' + i + '. j > lo is false, because lo = ' + tgt + '. No value needs to move.' });
+      }
+      while (j2 > tgt) {
+        cur.j = j2;
+        var mv = order[j2 - 1]; order[j2] = mv; order[j2 - 1] = null; hole = j2 - 1; shifts++;
+        snap({ lines: [10, 11], title: 'Shift right', moved: mv, rows: ['j', 'shifts'],
+          note: 'j = ' + j2 + '. a[j] = a[j − 1]. The value ' + vals[mv] + ' moves one place to the right. The free position is now position ' + (j2 - 1) + '.' });
+        j2--;
+      }
+      cur.j = null;
+      order[tgt] = keyId; var placed2 = keyId; keyId = null; hole = null;
+      snap({ lines: [12], title: 'Insert the key', moved: placed2, rows: ['key'],
+        note: 'a[lo] = key. The key goes to position ' + tgt + '. The sorted part now has ' + (i + 1) + ' values.' });
+    }
+  }
+  cur.i = null; cur.j = null; cur.lo = null; cur.hi = null; cur.mid = null;
+  snap({ title: 'Sorted', done: true, note: 'The array is sorted. The run used ' + cmp + ' comparisons and ' + shifts + ' shifts.' });
+  return steps;
+}
+
+var QX0 = 140, BW = 56, BG = 10, BASE = 250, UNIT = 22, QVW = 740, QVH = 410, SLOT_X = 24;
+function colX(p) { return QX0 + p * (BW + BG); }
+function posMap(order) {
+  var m = {};
+  order.forEach(function (id, p) { if (id !== null) m[id] = p; });
+  return m;
+}
+
+function barClass(st, id, p) {
+  var c = 'bar';
+  if (st.done) return c + ' fin';
+  if (id === st.keyId) return c + ' piv';
+  if (p < st.bound) c += ' le';
+  if (st.search && st.lo !== null && st.hi !== null && p < st.bound && p !== st.cmpAt && !(p >= st.lo && p < st.hi)) c += ' dim';
+  if (st.cmpAt !== null && p === st.cmpAt) c += ' cur';
+  if (st.moved === id) c += ' swp';
+  return c;
+}
+
+function overlayHTML(st) {
+  var out = '';
+  if (st.hole !== null && st.keyId !== null) {
+    var h = st.vals[st.keyId] * UNIT;
+    out += '<rect class="ghost" x="' + colX(st.hole) + '" y="' + (BASE - h) + '" width="' + BW + '" height="' + h + '" rx="3"/>';
+  }
+  if (st.keyId !== null) {
+    out += '<text class="plab" x="' + (SLOT_X + BW / 2) + '" y="' + (BASE + 18) + '" text-anchor="middle">key</text>';
+  }
+  if (!st.done) {
+    var x1 = colX(0), x2 = colX(st.bound - 1) + BW, by = BASE + 30;
+    out += '<path class="brk" d="M' + x1 + ',' + (by - 5) + ' V' + by + ' H' + x2 + ' V' + (by - 5) + '"/>';
+  }
+  var tg = [];
+  if (st.i !== null) tg.push([st.i, 'i', 'pv']);
+  if (st.version === 'binary' && st.search) {
+    if (st.lo !== null) tg.push([st.lo, 'lo', 'pd']);
+    if (st.hi !== null) tg.push([st.hi, 'hi', 'pn']);
+    if (st.mid !== null) tg.push([st.mid, 'mid', 'pv']);
+  }
+  if (st.j !== null && st.j >= 0) tg.push([st.j, 'j', 'pn']);
+  var used = {};
+  tg.forEach(function (t) {
+    var k = used[t[0]] || 0; used[t[0]] = k + 1;
+    var cx = colX(t[0]) + BW / 2, w = Math.round(t[1].length * 7.4 + 16), y = BASE + 50 + k * 24;
+    out += '<g class="tag ' + t[2] + '"><rect x="' + (cx - w / 2) + '" y="' + y + '" width="' + w + '" height="20" rx="4"/><text x="' + cx + '" y="' + (y + 14) + '" text-anchor="middle">' + t[1] + '</text></g>';
+    if (k === 0) out += '<g class="tp ' + t[2] + '"><path class="hd" d="M' + (cx - 4.5) + ',' + (BASE + 47) + ' L' + cx + ',' + (BASE + 40) + ' L' + (cx + 4.5) + ',' + (BASE + 47) + ' Z"/></g>';
+  });
+  return out;
+}
+
+function tableHTML(st) {
+  function nv(v) { return v === null ? 'not set' : String(v); }
+  var hasJ = st.j !== null && st.j >= 0;
+  var keyV = st.keyId === null ? 'not set' : String(st.vals[st.keyId]);
+  var rows;
+  if (st.version === 'binary') {
+    rows = [
+      ['pass', st.pass ? String(st.pass) : 'not set'], ['i', nv(st.i)], ['key', keyV],
+      ['lo', nv(st.lo)], ['hi', nv(st.hi)], ['mid', nv(st.mid)], ['j', nv(st.j)],
+      ['comparisons', String(st.cmp)], ['shifts', String(st.shifts)]
+    ];
+  } else {
+    rows = [
+      ['pass', st.pass ? String(st.pass) : 'not set'], ['i', nv(st.i)], ['j', nv(st.j)], ['key', keyV],
+      ['a[j]', hasJ ? String(st.vals[st.order[st.j]]) : 'not set'],
+      ['comparisons', String(st.cmp)], ['shifts', String(st.shifts)]
+    ];
+  }
+  return rows.map(function (r) {
+    var unset = r[1] === 'not set';
+    return '<li class="pt' + (st.rows.indexOf(r[0]) >= 0 ? ' hi' : '') + '"><span class="k">' + esc(r[0]) + '</span><span class="v' + (unset ? ' unset' : '') + '">' + esc(r[1]) + '</span></li>';
+  }).join('');
+}
+
+function formulaHTML(st) {
+  var arr = st.vals, n = st.n, I = inversions(arr), z = zCount(arr), c = cmpIns(arr);
+  if (st.version === 'binary') {
+    var bc = binCmp(arr), bmax = binMax(n), bmin = binMin(n);
+    var leftB = '<div><p class="f-h">Binary search for the place</p>' +
+      '<p class="f-m">lo = 0, hi = i</p>' +
+      '<p class="f-m">mid = (lo + hi) / 2</p>' +
+      '<p class="f-m">a[mid] &gt; key: hi = mid. Otherwise: lo = mid + 1.</p>' +
+      '<p class="f-note">The range from lo to hi − 1 loses about half of its values in each round. For a sorted part of i values, the search needs at most ⌊log<sub>2</sub> i⌋ + 1 comparisons.</p>' +
+      '<p class="f-h">Comparisons</p>' +
+      '<p class="f-m">C ≤ Σ (⌊log<sub>2</sub> i⌋ + 1), for i = 1 to n − 1</p>' +
+      '<p class="f-m">C = O(n log n)</p>' +
+      '<p class="f-note">The count does not fall for sorted input. For sorted input the standard version needs only n − 1 comparisons.</p>' +
+      '<p class="f-h">Shifts and total time</p>' +
+      '<p class="f-m">shifts = I, the number of inversions</p>' +
+      '<p class="f-m">Worst case: <span class="th">Θ</span>(n²)</p>' +
+      '<p class="f-note">The shifts are the same as in the standard version. Binary search lowers only the comparisons. The moves still take up to n(n − 1) / 2 shifts. This version helps when one comparison costs much more than one move. The sort is stable, because ties go to the right: the test a[mid] &gt; key is strict. It uses O(1) extra space.</p></div>';
+    var rightB = '<div><p class="f-h">With this input, n = ' + n + '</p><div class="tblwrap"><table class="jt">' +
+      '<tr><th>Item</th><th>Value</th></tr>' +
+      '<tr><td style="text-align:left">Inversions I (the shifts)</td><td>' + I + '</td></tr>' +
+      '<tr><td style="text-align:left">Comparisons for this input</td><td>' + bc + '</td></tr>' +
+      '<tr><td style="text-align:left">Fewest possible: Σ ⌊log<sub>2</sub>(i + 1)⌋</td><td>' + bmin + '</td></tr>' +
+      '<tr><td style="text-align:left">Most possible: Σ (⌊log<sub>2</sub> i⌋ + 1)</td><td>' + bmax + '</td></tr>' +
+      '<tr><td style="text-align:left">Standard version, same input</td><td>' + c + '</td></tr>' +
+      '<tr><td class="last" style="text-align:left">This run' + (st.done ? '' : ' so far') + ': comparisons</td><td class="last">' + st.cmp + '</td></tr>' +
+      '<tr><td class="last" style="text-align:left">This run' + (st.done ? '' : ' so far') + ': shifts</td><td class="last">' + st.shifts + '</td></tr></table></div>' +
+      (st.done
+        ? ((st.cmp === bc && st.shifts === I)
+          ? '<p class="f-ok">The run used ' + st.cmp + ' comparisons and ' + st.shifts + ' shifts. The shifts match I. The comparisons are between ' + bmin + ' and ' + bmax + '.</p>'
+          : '<p class="f-note">The run used ' + st.cmp + ' comparisons and ' + st.shifts + ' shifts.</p>')
+        : '<p class="f-note">The shifts are already known: they equal I.</p>') +
+      '</div>';
+    return leftB + rightB;
+  }
+  var left = '<div><p class="f-h">Shifts</p>' +
+    '<p class="f-m">shifts = I, the number of inversions</p>' +
+    '<p class="f-note">An inversion is a pair of positions p &lt; q with a[p] &gt; a[q]. Each shift moves one value past the key. It removes exactly one inversion.</p>' +
+    '<p class="f-h">Comparisons</p>' +
+    '<p class="f-m">C = I + (n − 1) − z</p>' +
+    '<p class="f-note">Each pass makes one comparison for each shift, and one more comparison that stops the loop. The extra comparison does not happen when the key goes to position 0. z is the number of such keys. A key goes to position 0 when it is smaller than all values on its left.</p>' +
+    '<p class="f-h">Best, worst, and average</p>' +
+    '<p class="f-m">Best case, sorted input: I = 0, so C = n − 1, <span class="th">Θ</span>(n)</p>' +
+    '<p class="f-m">Worst case, reverse input: I = n(n − 1) / 2, C = n(n − 1) / 2, <span class="th">Θ</span>(n²)</p>' +
+    '<p class="f-m">Average case: I = n(n − 1) / 4, so <span class="th">Θ</span>(n²)</p>' +
+    '<p class="f-note">The running time is <span class="th">Θ</span>(n + I). The sort is fast when the input is nearly sorted. It is stable, because the test a[j] &gt; key is strict. It uses O(1) extra space. Choose the binary version to see how binary search lowers the comparisons. The shifts stay the same.</p></div>';
+  var right = '<div><p class="f-h">With this input, n = ' + n + '</p><div class="tblwrap"><table class="jt">' +
+    '<tr><th>Item</th><th>Value</th></tr>' +
+    '<tr><td style="text-align:left">Inversions I (the shifts)</td><td>' + I + '</td></tr>' +
+    '<tr><td style="text-align:left">z, keys that reach position 0</td><td>' + z + '</td></tr>' +
+    '<tr><td style="text-align:left">Comparisons: I + (n − 1) − z</td><td>' + c + '</td></tr>' +
+    '<tr><td style="text-align:left">Best case: n − 1</td><td>' + (n - 1) + '</td></tr>' +
+    '<tr><td style="text-align:left">Worst case: n(n − 1) / 2</td><td>' + (n * (n - 1) / 2) + '</td></tr>' +
+    '<tr><td class="last" style="text-align:left">This run' + (st.done ? '' : ' so far') + ': comparisons</td><td class="last">' + st.cmp + '</td></tr>' +
+    '<tr><td class="last" style="text-align:left">This run' + (st.done ? '' : ' so far') + ': shifts</td><td class="last">' + st.shifts + '</td></tr></table></div>' +
+    (st.done
+      ? ((st.cmp === c && st.shifts === I)
+        ? '<p class="f-ok">The run used ' + st.cmp + ' comparisons and ' + st.shifts + ' shifts. Both match the formulas.</p>'
+        : '<p class="f-note">The run used ' + st.cmp + ' comparisons and ' + st.shifts + ' shifts.</p>')
+      : '<p class="f-note">The formulas already give the final counts for this input.</p>') +
+    '</div>';
+  return left + right;
+}
+//SIM-END
+
+function insCode(version) {
+  if (version === 'binary') return [
+    'void binaryInsertionSort(int a[], int n) {',
+    '    for (int i = 1; i < n; i++) {',
+    '        int key = a[i];',
+    '        int lo = 0, hi = i;',
+    '        while (lo < hi) {',
+    '            int mid = (lo + hi) / 2;',
+    '            if (a[mid] > key) hi = mid;',
+    '            else lo = mid + 1;',
+    '        }',
+    '        for (int j = i; j > lo; j--)',
+    '            a[j] = a[j - 1];',
+    '        a[lo] = key;',
+    '    }',
+    '}'
+  ];
+  return [
+    'void insertionSort(int a[], int n) {',
+    '    for (int i = 1; i < n; i++) {',
+    '        int key = a[i];',
+    '        int j = i - 1;',
+    '        while (j >= 0 && a[j] > key) {',
+    '            a[j + 1] = a[j];',
+    '            j--;',
+    '        }',
+    '        a[j + 1] = key;',
+    '    }',
+    '}'
+  ];
+}
+
+function isSkeleton(vals) {
+  var n = vals.length, s = '<svg class="qs" viewBox="0 0 ' + QVW + ' ' + QVH + '" width="' + QVW + '" style="width:100%;max-width:' + QVW + 'px;min-width:520px" role="img" aria-label="Array bars">';
+  s += '<line class="base" x1="' + (QX0 - 10) + '" y1="' + BASE + '" x2="' + (colX(n - 1) + BW + 10) + '" y2="' + BASE + '"/>';
+  for (var p = 0; p < n; p++) s += '<text class="idx" x="' + (colX(p) + BW / 2) + '" y="' + (BASE + 18) + '" text-anchor="middle">' + p + '</text>';
+  s += '<g id="bars">';
+  for (var id = 0; id < n; id++) {
+    var h = vals[id] * UNIT;
+    s += '<g class="bar" id="b' + id + '" style="transform:translate(' + colX(id) + 'px,0)"><rect x="0" y="' + (BASE - h) + '" width="' + BW + '" height="' + h + '" rx="3"/>' +
+      '<text x="' + (BW / 2) + '" y="' + (BASE - h - 7) + '" text-anchor="middle">' + vals[id] + '</text></g>';
+  }
+  s += '</g><g id="over"></g></svg>';
+  return s;
+}
+
+var TRACE = {
+  getCode: function () { return insCode(document.getElementById('selVersion').value); },
+  hl: function (s) {
+    return esc(s)
+      .replace(/\b(insertionSort|binaryInsertionSort)\b/g, '<span class="fn">$1</span>')
+      .replace(/\b(void|int|for|while|if|else)\b/g, '<span class="kw">$1</span>');
+  },
+  simulate: function () {
+    return simulate(document.getElementById('selVersion').value, +document.getElementById('selInput').value);
+  },
+  render: function (s) {
+    var stage = document.getElementById('stage'), sig = s.vals.join(',');
+    if (stage.getAttribute('data-sig') !== sig) {
+      stage.innerHTML = isSkeleton(s.vals);
+      stage.setAttribute('data-sig', sig);
+    }
+    var pm = posMap(s.order);
+    for (var id = 0; id < s.n; id++) {
+      var g = document.getElementById('b' + id);
+      g.setAttribute('class', barClass(s, id, pm[id]));
+      g.style.transform = 'translate(' + (id === s.keyId ? SLOT_X : colX(pm[id])) + 'px,0)';
+    }
+    document.getElementById('over').innerHTML = overlayHTML(s);
+    document.getElementById('ptable').innerHTML = tableHTML(s);
+    document.getElementById('formula').innerHTML = formulaHTML(s);
+  }
+};
+
+</script>
+<script src="../../assets/player.js"></script>
+</body>
+</html>

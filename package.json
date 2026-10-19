@@ -1,0 +1,18 @@
+{
+  "name": "autodidact",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Animated, step-by-step study pages for computer science. Learn on your own terms.",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "check": "node scripts/build.mjs --check",
+    "test": "node scripts/build.mjs --check && node --test"
+  },
+  "devDependencies": {
+    "jsdom": "^24.1.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

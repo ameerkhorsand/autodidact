@@ -1,0 +1,512 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Order-Statistic Tree: Select and Rank</title>
+<link rel="stylesheet" href="../../assets/base.css">
+<link rel="stylesheet" href="../../assets/trace.css">
+<script src="../../assets/theme.js"></script>
+<style>
+.p-code .code { max-height: 560px; overflow: auto; }
+.av { transition: opacity 0.3s; }
+.av.gone { opacity: 0; pointer-events: none; }
+.av circle { fill: var(--paper); stroke: var(--ink); stroke-width: 1.8; }
+.av text.key { font: 700 15px var(--font-mono); fill: var(--ink); }
+.av .pill { fill: var(--paper); stroke: var(--line); stroke-width: 1.2; }
+.av .bf { font: 700 11px var(--font-mono); fill: var(--ink); }
+.av .ht { font: 500 11px var(--font-mono); fill: var(--muted); }
+.av .role { font: 700 14px var(--font-mono); fill: var(--accent); }
+.av.out .pill { fill: var(--accent); stroke: var(--accent); }
+.av.out .bf { fill: var(--on-accent); }
+.av .pill.stale { stroke-dasharray: 3 2; stroke: var(--muted); fill: transparent; }
+.av .bf.stale, .av .ht.stale { fill: var(--muted); }
+.av.path circle { stroke: var(--accent); stroke-width: 2.2; }
+.av.cur circle { stroke: var(--accent); stroke-width: 3.4; }
+.av.bad circle { stroke: var(--accent); stroke-width: 3.4; fill: var(--hl); }
+.av.r-z circle { fill: var(--accent); stroke: var(--accent); }
+.av.r-z text.key { fill: var(--on-accent); }
+.av.r-z .role { fill: var(--accent); }
+.av.r-y circle { fill: var(--le); }
+.av.r-x circle { fill: var(--gt); }
+.av.mv circle { stroke: var(--accent); stroke-width: 3; stroke-dasharray: 4 3; }
+.av.rem circle { stroke: var(--accent); stroke-width: 3.4; stroke-dasharray: 5 3; fill: transparent; }
+.ae { stroke: var(--ink); stroke-width: 1.8; stroke-linecap: round; transition: opacity 0.3s; }
+.ae.chg { stroke: var(--accent); stroke-width: 3.2; }
+.ae.gone { opacity: 0; }
+.minis { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin: 0 0 14px; }
+.mini { border: 1px solid var(--line); border-radius: 6px; padding: 8px 12px 6px; }
+.mini.on { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+.mini .mh { display: flex; justify-content: space-between; gap: 10px; margin: 0 0 2px; font: 12px var(--font-mono); color: var(--muted); }
+.mini .mh b { color: var(--ink); font-size: 14px; }
+.mini svg { display: block; width: 100%; height: auto; }
+.me { stroke: var(--ink); stroke-width: 1.4; }
+.mn circle { fill: var(--paper); stroke: var(--ink); stroke-width: 1.4; }
+.mn text { font: 700 11px var(--font-mono); fill: var(--ink); }
+.mn.r-z circle { fill: var(--accent); stroke: var(--accent); }
+.mn.r-z text { fill: var(--on-accent); }
+.mn.r-y circle { fill: var(--le); }
+.mn.r-x circle { fill: var(--gt); }
+.mt polygon { fill: var(--paper); stroke: var(--muted); stroke-width: 1.2; }
+.mt text { font: 500 9px var(--font-mono); fill: var(--muted); }
+.mar { fill: none; stroke: var(--muted); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.lg-pill { display: inline-block; min-width: 26px; padding: 0 5px; border: 1.2px solid var(--line); border-radius: 8px; font: 700 11px/16px var(--font-mono); text-align: center; color: var(--ink); }
+.lg-pill.out { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.lg-pill.stale { border-style: dashed; border-color: var(--muted); color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { .av, .ae { transition: none; } }
+
+.ost .ae { stroke: var(--ink); stroke-width: 1.8; stroke-linecap: round; }
+.ost g.on circle { fill: var(--paper); stroke: var(--ink); stroke-width: 1.8; }
+.ost g.on text.key { font: 700 15px var(--font-mono); fill: var(--ink); }
+.ost .pill { fill: var(--paper); stroke: var(--line); stroke-width: 1.2; }
+.ost .bf { font: 700 11px var(--font-mono); fill: var(--ink); }
+.ost g.on.rng circle { fill: var(--le); }
+.ost g.on.cnt circle { fill: var(--gt); }
+.ost g.on.path circle { stroke: var(--accent); stroke-width: 2.2; }
+.ost g.on.cur circle { stroke: var(--accent); stroke-width: 3.6; }
+.ost g.on.cur .pill { fill: var(--accent); stroke: var(--accent); }
+.ost g.on.cur .bf { fill: var(--on-accent); }
+.ost g.on.fnd circle { fill: var(--done); stroke: var(--done); }
+.ost g.on.fnd text.key { fill: var(--on-done); }
+.ost g.on.dim { opacity: 0.4; }
+.ost .sc rect { fill: var(--paper); stroke: var(--ink); stroke-width: 1.4; }
+.ost .sc text { font: 700 13px var(--font-mono); fill: var(--ink); }
+.ost .sc.rng rect { fill: var(--le); }
+.ost .sc.cnt rect { fill: var(--gt); }
+.ost .sc.cur rect { stroke: var(--accent); stroke-width: 3; }
+.ost .sc.fnd rect { fill: var(--done); stroke: var(--done); }
+.ost .sc.fnd text { fill: var(--on-done); }
+.ost .tgt { fill: var(--accent); }
+.ost .tgtl { font: 500 12px var(--font-mono); fill: var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <a class="back" href="index.html">&larr; Data Structures and Algorithms</a>
+  <header>
+    <div class="intro">
+      <h1>Order-statistic tree: Select and Rank</h1>
+      <p>Each node of a BST also stores size, the number of keys in its subtree. With size, Select finds the i-th smallest key. Rank finds the position of a key in sorted order. Both take O(h) time. Choose a tree, an operation, and a value. The strip at the bottom shows the sorted order.</p>
+    </div>
+    <div class="picks"><div class="pick"><label class="label" for="selTree">Tree</label><select id="selTree" class="param"><option value="0" selected>Balanced, 11 keys</option><option value="1">Perfect, 15 keys</option><option value="2">Leaning left, 10 keys</option><option value="3">Leaning right, 10 keys</option><option value="4">Zigzag, 9 keys</option></select></div><div class="pick"><label class="label" for="selOp">Operation</label><select id="selOp" class="param"><option value="select" selected>Select(i): the i-th smallest key</option><option value="rank">Rank(x): bottom-up, with parent links</option><option value="down">Rank(key): top-down, no parent links</option></select></div><div class="pick"><label class="label" for="selVal">Value</label><select id="selVal" class="param"></select></div></div>
+  </header>
+
+  <section class="panel controls" aria-label="Playback controls">
+    <button type="button" class="btn" id="reset">Reset</button>
+    <button type="button" class="btn" id="prev">Back</button>
+    <button type="button" class="btn primary" id="play">Play</button>
+    <button type="button" class="btn" id="next">Next</button>
+    <input type="range" class="scrub" id="scrub" min="0" max="1" value="0" aria-label="Step">
+    <span class="stepno" id="stepno">Step 0 of 0</span>
+    <label class="spd"><span class="label">Speed</span>
+      <select id="speed">
+        <option value="2600">Slow</option>
+        <option value="1600" selected>Normal</option>
+        <option value="800">Fast</option>
+      </select>
+    </label>
+  </section>
+
+  <div class="layout">
+    <section class="panel p-code">
+      <h2>Code (Python)</h2>
+      <ol class="code" id="code" aria-label="Source code"></ol>
+    </section>
+
+    <section class="panel p-diagram">
+      <h2>Diagram</h2>
+      <div class="stage" id="stage"></div>
+      <div class="legend"><span><span class="sw le"></span>Subtree of the current node</span><span><span class="sw gt"></span>Counted in r</span><span><svg viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="8" fill="none" stroke="currentColor" stroke-width="3"/></svg>Current node</span><span><span class="sw fin"></span>The answer</span><span><span class="lg-pill">5</span>size of the subtree</span></div>
+    </section>
+
+    <section class="panel p-table">
+      <h2>Pointers</h2>
+      <ul class="ptable" id="ptable" aria-label="Pointer values"></ul>
+      <h2 class="sub">Call stack</h2>
+      <ul class="frames" id="frames" aria-label="Call stack, newest call first"></ul>
+    </section>
+
+    <section class="panel p-note">
+      <div class="note-box">
+        <div class="eyebrow"><span id="title">Start</span><span id="lineref"></span></div>
+        <p class="note" id="note" aria-live="polite"></p>
+      </div>
+    </section>
+
+    <section class="panel p-formula">
+      <h2>Formula</h2>
+      <div class="formula" id="formula"></div>
+    </section>
+  </div>
+</div>
+
+<script>
+//SIM-START
+function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+var CODE = [
+  'class Node:',
+  '    def __init__(self, key):',
+  '        self.key = key',
+  '        self.left = None',
+  '        self.right = None',
+  '        self.parent = None',
+  '        self.size = 1             # keys in the subtree of this node',
+  '',
+  'def size(n):',
+  '    return n.size if n else 0',
+  '',
+  'def select(n, i):                 # i-th smallest key in the subtree of n',
+  '    r = size(n.left) + 1',
+  '    if i == r:',
+  '        return n',
+  '    if i < r:',
+  '        return select(n.left, i)',
+  '    return select(n.right, i - r)',
+  '',
+  'def rank(root, x):                # position of x in sorted order, bottom-up',
+  '    r = size(x.left) + 1',
+  '    y = x',
+  '    while y is not root:',
+  '        if y is y.parent.right:',
+  '            r += size(y.parent.left) + 1',
+  '        y = y.parent',
+  '    return r',
+  '',
+  'def rank_down(n, key):            # position of key in sorted order, top-down',
+  '    r = 0',
+  '    while n:',
+  '        if key < n.key:',
+  '            n = n.left',
+  '        elif key > n.key:',
+  '            r += size(n.left) + 1',
+  '            n = n.right',
+  '        else:',
+  '            return r + size(n.left) + 1',
+  '    return None'
+];
+function ln(text, nth) {
+  var seen = 0;
+  for (var k = 0; k < CODE.length; k++) {
+    var t = CODE[k].replace(/\s+#.*$/, '').trim();
+    if (t === text) { seen++; if (seen === (nth || 1)) return k + 1; }
+  }
+  throw new Error('line not found: ' + text);
+}
+var L = {
+  selDef: ln('def select(n, i):'), selR: ln('r = size(n.left) + 1'), selEq: ln('if i == r:'), selRet: ln('return n'),
+  selLt: ln('if i < r:'), selL: ln('return select(n.left, i)'), selR2: ln('return select(n.right, i - r)'),
+  rkDef: ln('def rank(root, x):'), rkR: ln('r = size(x.left) + 1'), rkY: ln('y = x'), rkWhile: ln('while y is not root:'),
+  rkIf: ln('if y is y.parent.right:'), rkAdd: ln('r += size(y.parent.left) + 1'), rkUp: ln('y = y.parent'), rkRet: ln('return r'),
+  rdDef: ln('def rank_down(n, key):'), rdR: ln('r = 0'), rdWhile: ln('while n:'), rdLt: ln('if key < n.key:'), rdL: ln('n = n.left'),
+  rdGt: ln('elif key > n.key:'), rdAdd: ln('r += size(n.left) + 1'), rdRgt: ln('n = n.right'), rdElse: ln('else:'), rdRet: ln('return r + size(n.left) + 1')
+};
+
+var TREES = [
+  { name: 'Balanced, 11 keys', keys: [50, 30, 70, 20, 40, 60, 80, 10, 25, 35, 45] },
+  { name: 'Perfect, 15 keys', keys: [80, 40, 120, 20, 60, 100, 140, 10, 30, 50, 70, 90, 110, 130, 150] },
+  { name: 'Leaning left, 10 keys', keys: [60, 40, 70, 30, 50, 20, 35, 10, 25, 15] },
+  { name: 'Leaning right, 10 keys', keys: [20, 10, 40, 30, 60, 50, 80, 70, 90, 100] },
+  { name: 'Zigzag, 9 keys', keys: [50, 20, 80, 30, 70, 40, 60, 45, 55] }
+];
+var OPS = [
+  { v: 'select', name: 'Select(i): the i-th smallest key' },
+  { v: 'rank', name: 'Rank(x): bottom-up, with parent links' },
+  { v: 'down', name: 'Rank(key): top-down, no parent links' }
+];
+
+function buildTree(keys) {
+  var map = {}, root = null;
+  keys.forEach(function (k) {
+    var nd = { key: k, left: null, right: null, parent: null, size: 1 };
+    map[k] = nd;
+    if (!root) { root = nd; return; }
+    var c = root;
+    while (true) {
+      c.size++;
+      if (k < c.key) { if (c.left) c = c.left; else { c.left = nd; nd.parent = c; break; } }
+      else { if (c.right) c = c.right; else { c.right = nd; nd.parent = c; break; } }
+    }
+  });
+  var idx = 0, nodes = [], h = 0;
+  (function walk(n, d) {
+    if (!n) return;
+    walk(n.left, d + 1);
+    n.idx = ++idx; n.d = d; if (d + 1 > h) h = d + 1;
+    nodes.push(n);
+    walk(n.right, d + 1);
+  })(root, 0);
+  nodes.forEach(function (n) { n.lo = n.idx - (n.left ? n.left.size : 0); n.hi = n.idx + (n.right ? n.right.size : 0); });
+  return { root: root, map: map, nodes: nodes, n: nodes.length, h: h, sorted: nodes.map(function (q) { return q.key; }) };
+}
+function sz(n) { return n ? n.size : 0; }
+function subKeys(n) { var o = []; (function w(q) { if (!q) return; w(q.left); o.push(q.key); w(q.right); })(n); return o; }
+
+// op: 'select' (value = i), 'rank' or 'down' (value = key)
+function simulate(ti, op, val) {
+  var T = buildTree(TREES[ti].keys), steps = [], stack = [], visited = 0, terms = [];
+  var target = op === 'select' ? val : T.map[val].idx;
+  function plural(k, w) { return k + ' ' + w + (k === 1 ? '' : 's'); }
+  function snap(o) {
+    steps.push({
+      lines: o.lines || [], title: o.title, note: o.note, tree: T, op: op, val: val, target: target,
+      cur: o.cur === undefined ? null : o.cur, range: o.range || [], counted: o.counted || [], found: o.found === undefined ? null : o.found,
+      path: o.path ? o.path.slice() : [], stack: stack.slice(), vrows: o.vrows || [], vhi: o.vhi || [], visited: visited,
+      terms: terms.slice(), done: !!o.done, result: o.result === undefined ? null : o.result
+    });
+  }
+  var pathAcc = [];
+  function title0() { return op === 'select' ? 'Select(root, ' + val + ')' : (op === 'rank' ? 'Rank(root, x = ' + val + ')' : 'Rank_down(root, key = ' + val + ')'); }
+  snap({ title: 'Start', lines: [], vrows: [],
+    note: (op === 'select' ? 'Goal: find the ' + val + (val === 1 ? 'st' : val === 2 ? 'nd' : val === 3 ? 'rd' : 'th') + ' smallest key. ' : 'Goal: find the position of key ' + val + ' in sorted order. ') +
+      'Each node shows size, the number of keys in its subtree. The strip at the bottom shows the keys in sorted order with their positions. Press Next.' });
+
+  if (op === 'select') {
+    var res = null;
+    (function sel(n, i) {
+      visited++; pathAcc.push(n.key);
+      stack.push('select(n=' + n.key + ', i=' + i + ')');
+      var ls = sz(n.left), r = ls + 1;
+      var rng = subKeys(n);
+      snap({ lines: [L.selDef, L.selR], title: 'Call select(' + n.key + ', ' + i + ')', cur: n.key, range: rng, path: pathAcc,
+        vrows: [['n', n.key], ['i', i], ['size(n.left)', ls], ['r', r]], vhi: ['n', 'i', 'size(n.left)', 'r'],
+        note: 'The subtree of ' + n.key + ' holds ' + plural(n.size, 'key') + '. size(n.left) = ' + ls + ', so r = ' + ls + ' + 1 = ' + r + '. Node ' + n.key + ' is the ' + r + (r === 1 ? 'st' : r === 2 ? 'nd' : r === 3 ? 'rd' : 'th') + ' smallest key in its own subtree. We look for the ' + i + (i === 1 ? 'st' : i === 2 ? 'nd' : i === 3 ? 'rd' : 'th') + ' smallest in this subtree.' });
+      if (i === r) {
+        snap({ lines: [L.selEq, L.selRet], title: 'i = r: found', cur: n.key, range: rng, found: n.key, path: pathAcc,
+          vrows: [['n', n.key], ['i', i], ['size(n.left)', ls], ['r', r]], vhi: ['i', 'r'],
+          note: 'i = r = ' + r + '. The keys in the left subtree are smaller. Node ' + n.key + ' is next in order. So ' + n.key + ' is the answer. The call returns node ' + n.key + '.' });
+        res = n;
+      } else if (i < r) {
+        snap({ lines: [L.selEq, L.selLt, L.selL], title: 'i < r: go left', cur: n.key, range: rng, path: pathAcc,
+          vrows: [['n', n.key], ['i', i], ['size(n.left)', ls], ['r', r]], vhi: ['i', 'r'],
+          note: i + ' < ' + r + '. Only ' + ls + ' keys are smaller than ' + n.key + '. They are all in the left subtree. The answer is the ' + i + (i === 1 ? 'st' : i === 2 ? 'nd' : i === 3 ? 'rd' : 'th') + ' smallest of the left subtree. Call select(' + n.left.key + ', ' + i + ').' });
+        sel(n.left, i);
+      } else {
+        snap({ lines: [L.selEq, L.selLt, L.selR2], title: 'i > r: go right', cur: n.key, range: rng, path: pathAcc,
+          vrows: [['n', n.key], ['i', i], ['size(n.left)', ls], ['r', r]], vhi: ['i', 'r'],
+          note: i + ' > ' + r + '. The left subtree and node ' + n.key + ' hold ' + r + ' keys. All are smaller than the answer. Skip them. The answer is the ' + (i - r) + ((i - r) === 1 ? 'st' : (i - r) === 2 ? 'nd' : (i - r) === 3 ? 'rd' : 'th') + ' smallest of the right subtree (i − r = ' + i + ' − ' + r + ' = ' + (i - r) + '). Call select(' + n.right.key + ', ' + (i - r) + ').' });
+        sel(n.right, i - r);
+      }
+      stack.pop();
+    })(T.root, val);
+    snap({ title: 'Done: Select(' + val + ') = ' + res.key, lines: [], done: true, found: res.key, result: res.key, path: pathAcc,
+      vrows: [['returns', res.key]], vhi: ['returns'],
+      note: 'Each call returns the same node to its caller. The result is key ' + res.key + '. The sorted strip confirms it: position ' + val + ' holds ' + res.key + '. The code looked at ' + plural(visited, 'node') + ', and the tree has height ' + T.h + '. The cost is O(h).' });
+  } else if (op === 'rank') {
+    var x = T.map[val], r = sz(x.left) + 1, y = x, cnt = [];
+    function addCounted(nd, withRight) { /* keys counted in r */ }
+    var counted = subKeys(x.left).concat([x.key]);
+    terms.push(r);
+    visited = 1; pathAcc.push(x.key);
+    snap({ lines: [L.rkDef, L.rkR], title: 'Start at x = ' + x.key, cur: x.key, range: subKeys(x), counted: counted, path: pathAcc,
+      vrows: [['x', x.key], ['y', '—'], ['r', r]], vhi: ['x', 'r'],
+      note: 'size(x.left) = ' + sz(x.left) + '. So r = ' + sz(x.left) + ' + 1 = ' + r + '. Inside the subtree of x, key ' + x.key + ' is number ' + r + '. The colored nodes are the keys counted in r so far.' });
+    snap({ lines: [L.rkY], title: 'y = x', cur: y.key, range: subKeys(y), counted: counted, path: pathAcc,
+      vrows: [['x', x.key], ['y', y.key], ['r', r]], vhi: ['y'],
+      note: 'y starts at x. From now on, r is always the position of x inside the subtree of y. The loop moves y up to the root. It adds the keys that are smaller than x and lie outside the subtree of y.' });
+    while (y !== T.root) {
+      var p = y.parent, right = p.right === y;
+      visited++;
+      snap({ lines: [L.rkWhile, L.rkIf], title: 'y is ' + (right ? 'a right child' : 'a left child'), cur: y.key, range: subKeys(y), counted: counted, path: pathAcc,
+        vrows: [['x', x.key], ['y', y.key], ['y.parent', p.key], ['r', r]], vhi: ['y', 'y.parent'],
+        note: 'y = ' + y.key + ' is not the root. Its parent is ' + p.key + '. ' + (right
+          ? 'y is the right child of ' + p.key + '. So node ' + p.key + ' and its whole left subtree (' + sz(p.left) + (sz(p.left) === 1 ? ' key' : ' keys') + ') are smaller than x. Add them to r.'
+          : 'y is the left child of ' + p.key + '. So node ' + p.key + ' and its right subtree are larger than x. Add nothing.') });
+      if (right) {
+        var add = sz(p.left) + 1;
+        r += add; terms.push(add);
+        counted = counted.concat(subKeys(p.left), [p.key]);
+        snap({ lines: [L.rkAdd], title: 'Add ' + add + ' to r', cur: y.key, range: subKeys(y), counted: counted, path: pathAcc,
+          vrows: [['x', x.key], ['y', y.key], ['y.parent', p.key], ['r', r]], vhi: ['r'],
+          note: 'r += size(y.parent.left) + 1 = ' + sz(p.left) + ' + 1 = ' + add + '. Now r = ' + r + '.' });
+      }
+      y = p; pathAcc.push(y.key);
+      snap({ lines: [L.rkUp], title: 'y = y.parent', cur: y.key, range: subKeys(y), counted: counted, path: pathAcc,
+        vrows: [['x', x.key], ['y', y.key], ['r', r]], vhi: ['y'],
+        note: 'y = ' + y.key + '. Now r = ' + r + ' is the position of ' + x.key + ' inside the subtree of ' + y.key + '.' });
+    }
+    snap({ lines: [L.rkWhile, L.rkRet], title: 'y is the root: done', cur: y.key, range: subKeys(y), counted: counted, found: x.key, path: pathAcc,
+      vrows: [['x', x.key], ['y', y.key], ['r', r]], vhi: ['r'],
+      note: 'y is the root, so the loop stops. return r = ' + r + '. The tree has no more keys to add.' });
+    snap({ title: 'Done: Rank(' + x.key + ') = ' + r, lines: [], done: true, found: x.key, result: r, counted: counted, path: pathAcc,
+      vrows: [['returns', r]], vhi: ['returns'],
+      note: 'Rank(' + x.key + ') = ' + r + '. The sorted strip confirms it: key ' + x.key + ' is at position ' + r + '. The loop climbed ' + (visited - 1) + ' level' + (visited - 1 === 1 ? '' : 's') + '. The tree has height ' + T.h + '. The cost is O(h).' });
+  } else {
+    var n = T.root, rr = 0, counted2 = [];
+    snap({ lines: [L.rdDef, L.rdR], title: 'r = 0', cur: null, range: subKeys(T.root), path: [],
+      vrows: [['n', n.key], ['key', val], ['r', 0]], vhi: ['r'],
+      note: 'r counts the keys that are known to be smaller than ' + val + '. It starts at 0. n starts at the root.' });
+    var fin = null;
+    while (n) {
+      visited++; pathAcc.push(n.key);
+      var ls2 = sz(n.left), go = val < n.key ? 'left' : (val > n.key ? 'right' : null);
+      snap({ lines: go === 'left' ? [L.rdWhile, L.rdLt] : (go === 'right' ? [L.rdWhile, L.rdLt, L.rdGt] : [L.rdWhile, L.rdLt, L.rdGt, L.rdElse]),
+        title: 'Compare ' + val + ' with ' + n.key, cur: n.key, range: subKeys(n), counted: counted2, path: pathAcc,
+        vrows: [['n', n.key], ['key', val], ['size(n.left)', ls2], ['r', rr]], vhi: ['n', 'key'],
+        note: go === 'left' ? val + ' < ' + n.key + '. The key is in the left subtree. Nothing is added: node ' + n.key + ' and its right subtree are larger.'
+          : (go === 'right' ? val + ' > ' + n.key + '. Node ' + n.key + ' and its left subtree (' + ls2 + (ls2 === 1 ? ' key' : ' keys') + ') are smaller than ' + val + '. The key is in the right subtree.'
+            : val + ' = ' + n.key + '. This is the node.') });
+      if (go === 'left') {
+        n = n.left;
+        snap({ lines: [L.rdL], title: 'n = n.left', cur: n.key, range: subKeys(n), counted: counted2, path: pathAcc,
+          vrows: [['n', n.key], ['key', val], ['r', rr]], vhi: ['n'], note: 'n = ' + n.key + '. r stays ' + rr + '.' });
+      } else if (go === 'right') {
+        var a2 = ls2 + 1; rr += a2; terms.push(a2);
+        counted2 = counted2.concat(subKeys(n.left), [n.key]);
+        var oldN = n; n = n.right;
+        snap({ lines: [L.rdAdd, L.rdRgt], title: 'Add ' + a2 + ' to r, go right', cur: n.key, range: subKeys(n), counted: counted2, path: pathAcc,
+          vrows: [['n', n.key], ['key', val], ['size(n.left)', ls2], ['r', rr]], vhi: ['n', 'r'],
+          note: 'r += size(n.left) + 1 = ' + ls2 + ' + 1 = ' + a2 + '. Now r = ' + rr + '. n = n.right = ' + n.key + '.' });
+      } else {
+        var out = rr + ls2 + 1; fin = n; terms.push(ls2 + 1);
+        counted2 = counted2.concat(subKeys(n.left), [n.key]);
+        snap({ lines: [L.rdRet], title: 'Found: return ' + out, cur: n.key, range: subKeys(n), counted: counted2, found: n.key, path: pathAcc,
+          vrows: [['n', n.key], ['key', val], ['size(n.left)', ls2], ['r', rr], ['returns', out]], vhi: ['returns'],
+          note: 'return r + size(n.left) + 1 = ' + rr + ' + ' + ls2 + ' + 1 = ' + out + '. The keys above this node that are smaller, plus the left subtree, plus the node itself.' });
+        rr = out; n = null;
+      }
+    }
+    snap({ title: 'Done: Rank(' + val + ') = ' + rr, lines: [], done: true, found: fin.key, result: rr, counted: counted2, path: pathAcc,
+      vrows: [['returns', rr]], vhi: ['returns'],
+      note: 'Rank(' + val + ') = ' + rr + '. The sorted strip confirms it: key ' + val + ' is at position ' + rr + '. The loop looked at ' + plural(visited, 'node') + '. The tree has height ' + T.h + '. The cost is O(h).' });
+  }
+  return steps;
+}
+//SIM-END
+
+// ---------- drawing ----------
+var SPX = 46, DYY = 64, NR = 17, TOPY = 34, MX = 40;
+function drawSVG(s) {
+  var T = s.tree, n = T.n;
+  var vw = Math.max(420, (n - 1) * SPX + 2 * MX + 24), off = (vw - (n - 1) * SPX) / 2;
+  var stripY = TOPY + (T.h - 1) * DYY + 62, vh = stripY + 70;
+  var rangeSet = {}, countSet = {}, pathSet = {};
+  s.range.forEach(function (k) { rangeSet[k] = 1; });
+  s.counted.forEach(function (k) { countSet[k] = 1; });
+  s.path.forEach(function (k) { pathSet[k] = 1; });
+  function px(q) { return off + (q.idx - 1) * SPX; }
+  function py(q) { return TOPY + q.d * DYY; }
+  var out = '<svg class="qs ost" viewBox="0 0 ' + vw + ' ' + vh + '" width="' + vw + '" style="width:100%;max-width:' + Math.round(vw * 1.6) + 'px;min-width:' + Math.min(vw, 460) + 'px" role="img" aria-label="Tree with ' + n + ' keys. Sorted order: ' + T.sorted.join(', ') + '.">';
+  T.nodes.forEach(function (q) {
+    [q.left, q.right].forEach(function (c) {
+      if (!c) return;
+      var dx = px(c) - px(q), dy = py(c) - py(q), len = Math.sqrt(dx * dx + dy * dy), ux = dx / len, uy = dy / len;
+      out += '<line class="ae" x1="' + (px(q) + ux * NR).toFixed(1) + '" y1="' + (py(q) + uy * NR).toFixed(1) + '" x2="' + (px(c) - ux * NR).toFixed(1) + '" y2="' + (py(c) - uy * NR).toFixed(1) + '"/>';
+    });
+  });
+  var scope = s.range.length > 0;
+  T.nodes.forEach(function (q) {
+    var cls = 'on' + (s.cur === q.key ? ' cur' : '') + (pathSet[q.key] ? ' path' : '') + (countSet[q.key] ? ' cnt' : (rangeSet[q.key] ? ' rng' : '')) +
+      (s.found === q.key ? ' fnd' : '') + (scope && !rangeSet[q.key] && !countSet[q.key] ? ' dim' : '');
+    out += '<g class="' + cls + '" transform="translate(' + px(q).toFixed(1) + ',' + py(q) + ')"><circle r="' + NR + '"/><text class="key" y="5.5" text-anchor="middle">' + q.key + '</text>' +
+      '<rect class="pill" x="9" y="' + (-NR - 9) + '" width="26" height="16" rx="8"/><text class="bf" x="22" y="' + (-NR + 3) + '" text-anchor="middle">' + q.size + '</text></g>';
+  });
+  // sorted strip
+  var cw = Math.min(40, (vw - 2 * MX) / n), sx = (vw - cw * n) / 2;
+  out += '<text class="rowlab" x="' + (sx) + '" y="' + (stripY - 8) + '">sorted order</text>';
+  T.sorted.forEach(function (k, i) {
+    var cls = 'sc' + (rangeSet[k] ? ' rng' : '') + (countSet[k] ? ' cnt' : '') + (s.found === k ? ' fnd' : '') + (s.cur === k ? ' cur' : '');
+    var x = sx + i * cw;
+    out += '<g class="' + cls + '"><rect x="' + x.toFixed(1) + '" y="' + stripY + '" width="' + (cw - 2).toFixed(1) + '" height="30" rx="3"/><text x="' + (x + (cw - 2) / 2).toFixed(1) + '" y="' + (stripY + 20) + '" text-anchor="middle">' + k + '</text></g>' +
+      '<text class="idx" x="' + (x + (cw - 2) / 2).toFixed(1) + '" y="' + (stripY + 46) + '" text-anchor="middle">' + (i + 1) + '</text>';
+  });
+  var mx = sx + (s.target - 1) * cw + (cw - 2) / 2;
+  out += '<path class="tgt" d="M' + (mx - 6).toFixed(1) + ',' + (stripY + 62) + ' L' + mx.toFixed(1) + ',' + (stripY + 53) + ' L' + (mx + 6).toFixed(1) + ',' + (stripY + 62) + ' Z"/>' +
+    '<text class="tgtl" x="' + mx.toFixed(1) + '" y="' + (stripY + 70) + '" text-anchor="middle">' + (s.op === 'select' ? 'looking for position ' + s.val : 'rank of ' + s.val) + '</text>';
+  return out + '</svg>';
+}
+function tableHTML(s) {
+  var rows = s.vrows.length ? s.vrows : [['not started', '']];
+  return rows.map(function (r) {
+    return '<li class="pt' + (s.vhi.indexOf(r[0]) >= 0 ? ' hi' : '') + '"><span class="k">' + esc(r[0]) + '</span><span class="v">' + esc(r[1]) + '</span></li>';
+  }).join('');
+}
+function framesHTML(s) {
+  if (s.op !== 'select') return '<li class="empty">No recursion. This version is a loop.</li>';
+  if (!s.stack.length) return '<li class="empty">Empty. ' + (s.done ? 'All calls have returned.' : 'The first call has not started.') + '</li>';
+  return s.stack.slice().reverse().map(function (t, idx) {
+    return '<li class="frame' + (idx === 0 ? ' top' : '') + '"><div class="fh"><span>' + esc(t) + '</span><span>depth ' + (s.stack.length - idx) + '</span></div></li>';
+  }).join('');
+}
+function formulaHTML(s) {
+  var T = s.tree, op = s.op, sel = Math.min(s.target, T.n);
+  var left = '<div><p class="f-h">The size field</p>' +
+    '<p class="f-m">size(None) = 0</p>' +
+    '<p class="f-m">size(n) = size(n.left) + size(n.right) + 1</p>' +
+    '<p class="f-m">r(n) = size(n.left) + 1</p>' +
+    '<p class="f-note">r(n) is the position of node n inside its own subtree, in sorted order. The left subtree comes first. Then n. Then the right subtree.</p>' +
+    '<p class="f-h">Select(n, i)</p>' +
+    '<p class="f-m">i = r(n): the answer is n</p>' +
+    '<p class="f-m">i &lt; r(n): Select(n.left, i)</p>' +
+    '<p class="f-m">i &gt; r(n): Select(n.right, i − r(n))</p>' +
+    '<p class="f-note">In the third case, the left subtree and n hold r(n) keys. All are smaller than the answer. We skip them, so the position in the right subtree is i − r(n).</p>' +
+    '<p class="f-h">Rank, bottom-up</p>' +
+    '<p class="f-m">r = r(x) + Σ ( size(p.left) + 1 )</p>' +
+    '<p class="f-note">The sum is over every ancestor p of x such that the path goes to the right child of p. Such a p, and its left subtree, hold keys smaller than x. When the path goes to the left child, p and its right subtree are larger than x. The loop keeps this fact: r is the position of x inside the subtree of y.</p>' +
+    '<p class="f-h">Rank, top-down</p>' +
+    '<p class="f-m">go right at n: r += size(n.left) + 1</p>' +
+    '<p class="f-m">at the node: Rank = r + size(n.left) + 1</p>' +
+    '<p class="f-note">Both versions add the same terms. The first adds them from the node up. The second adds them from the root down. Rank and Select are inverse: Rank(Select(i)) = i.</p></div>';
+  var termsTxt = s.terms.length ? s.terms.join(' + ') + ' = ' + s.terms.reduce(function (a, b) { return a + b; }, 0) : 'none yet';
+  var right = '<div><p class="f-h">Keeping size correct</p>' +
+    '<p class="f-m">insert x: size += 1 for every node on the path</p>' +
+    '<p class="f-m">delete x: size −= 1 for every node on the path</p>' +
+    '<p class="f-m">rotation: top.size = old_top.size, then old_top.size = size(left) + size(right) + 1</p>' +
+    '<p class="f-note">A rotation changes only two sizes. So a balanced tree, such as an AVL tree or a red-black tree, keeps size correct with O(1) extra work for each rotation.</p>' +
+    '<p class="f-h">Cost</p>' +
+    '<p class="f-m">Select = O(h), Rank = O(h)</p>' +
+    '<p class="f-note">Each call or loop pass moves one level. With a balanced tree, h = O(log n). A plain BST with the same keys can have h = n.</p>' +
+    '<p class="f-h">With this run</p><div class="tblwrap"><table class="jt">' +
+    '<tr><th>Item</th><th>Value</th></tr>' +
+    '<tr><td style="text-align:left">Keys n</td><td>' + T.n + '</td></tr>' +
+    '<tr><td style="text-align:left">Height h of this tree</td><td>' + T.h + '</td></tr>' +
+    '<tr><td style="text-align:left">Smallest possible height: ⌈log2(n + 1)⌉</td><td>' + Math.ceil(Math.log(T.n + 1) / Math.LN2) + '</td></tr>' +
+    '<tr><td style="text-align:left">Query</td><td>' + (op === 'select' ? 'Select(' + s.val + ')' : 'Rank(' + s.val + ')') + '</td></tr>' +
+    '<tr class="x"><td class="last" style="text-align:left">Nodes looked at so far</td><td class="last">' + s.visited + '</td></tr>' +
+    '<tr><td class="last" style="text-align:left">Terms added to r so far</td><td class="last">' + (op === 'select' ? 'not used' : termsTxt) + '</td></tr>' +
+    '<tr><td class="last" style="text-align:left">Result</td><td class="last">' + (s.result === null ? 'not known yet' : (op === 'select' ? 'key ' + s.result : 'position ' + s.result)) + '</td></tr>' +
+    '</table></div>' +
+    (s.done ? '<p class="f-ok">' + (op === 'select' ? 'Check: Rank(' + s.result + ') = ' + s.val + '. The sorted strip agrees.' : 'Check: Select(' + s.result + ') = ' + s.val + '. The sorted strip agrees.') + '</p>' : '') + '</div>';
+  return left + right;
+}
+function fillValues(ti, op) {
+  var sel = document.getElementById('selVal'), sig = ti + '|' + op;
+  if (sel.getAttribute('data-sig') === sig) return;
+  var T = buildTree(TREES[ti].keys), html = '', def;
+  if (op === 'select') {
+    for (var i = 1; i <= T.n; i++) html += '<option value="' + i + '">i = ' + i + '</option>';
+    def = Math.min(7, T.n);
+  } else {
+    T.sorted.forEach(function (k, j) { html += '<option value="' + k + '">key ' + k + '</option>'; });
+    def = T.sorted[Math.min(6, T.n - 1)];
+  }
+  sel.innerHTML = html; sel.value = String(def); sel.setAttribute('data-sig', sig);
+}
+var TRACE = {
+  getCode: function () { return CODE; },
+  hl: function (s) {
+    var ci = s.indexOf('#'), code = ci >= 0 ? s.slice(0, ci) : s, cm = ci >= 0 ? s.slice(ci) : '';
+    var h = esc(code)
+      .replace(/\b(class|def|return|if|elif|else|while|is|not|None)\b/g, '<span class="kw">$1</span>')
+      .replace(/\b(size|select|rank|rank_down|Node)\b(?=\()/g, '<span class="fn">$1</span>')
+      .replace(/\b(self)\b/g, '<span class="ty">$1</span>');
+    return h + (cm ? '<span class="cm">' + esc(cm) + '</span>' : '');
+  },
+  simulate: function () {
+    var ti = +document.getElementById('selTree').value, op = document.getElementById('selOp').value;
+    fillValues(ti, op);
+    return simulate(ti, op, +document.getElementById('selVal').value);
+  },
+  render: function (s) {
+    document.getElementById('stage').innerHTML = drawSVG(s);
+    document.getElementById('ptable').innerHTML = tableHTML(s);
+    document.getElementById('frames').innerHTML = framesHTML(s);
+    document.getElementById('formula').innerHTML = formulaHTML(s);
+  }
+};
+
+</script>
+<script src="../../assets/player.js"></script>
+</body>
+</html>

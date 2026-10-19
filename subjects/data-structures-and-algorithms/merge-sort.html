@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Merge Sort</title>
+<link rel="stylesheet" href="../../assets/base.css">
+<link rel="stylesheet" href="../../assets/trace.css">
+<script src="../../assets/theme.js"></script>
+<style>
+/* Layout: grid-paper page. Same layout as QuickSort. The row under the bars is the tmp array. */
+.bar.used { opacity: 0.35; }
+.qs .run { fill: none; stroke: var(--done); stroke-width: 2.4; stroke-linecap: round; }
+.qs .tcell { fill: none; stroke: var(--line); stroke-width: 1.4; stroke-dasharray: 4 3; }
+.qs .tfill { fill: var(--paper); stroke: var(--ink); stroke-width: 1.6; }
+.qs .tfill.new { stroke: var(--accent); stroke-width: 3; }
+.qs .tval { font: 700 15px var(--font-mono); fill: var(--ink); }
+.qs .tlab { font: 500 12px var(--font-mono); fill: var(--muted); }
+.qs .tlab.on { fill: var(--accent); font-weight: 700; }
+.legend .sw.run { background: transparent; border: 0; border-bottom: 3px solid var(--done); border-radius: 0; height: 8px; width: 18px; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <a class="back" href="index.html">&larr; Data Structures and Algorithms</a>
+  <header>
+    <div class="intro">
+      <h1>Merge sort</h1>
+      <p>Merge sort splits the range in two, sorts each half, and merges the two sorted halves into one sorted run. The merge writes into a second array called tmp. Then it copies the result back. Choose an input. The bars slide when a merged run goes back into the array.</p>
+    </div>
+    <div class="picks"><div class="pick"><label class="label" for="selInput">Input</label><select id="selInput" class="param"><option value="0" selected>Mixed order</option><option value="1">Already sorted</option><option value="2">Reverse order</option><option value="3">Worst case for comparisons</option><option value="4">With equal values</option></select></div></div>
+  </header>
+
+  <section class="panel controls" aria-label="Playback controls">
+    <button type="button" class="btn" id="reset">Reset</button>
+    <button type="button" class="btn" id="prev">Back</button>
+    <button type="button" class="btn primary" id="play">Play</button>
+    <button type="button" class="btn" id="next">Next</button>
+    <input type="range" class="scrub" id="scrub" min="0" max="1" value="0" aria-label="Step">
+    <span class="stepno" id="stepno">Step 0 of 0</span>
+    <label class="spd"><span class="label">Speed</span>
+      <select id="speed">
+        <option value="2600">Slow</option>
+        <option value="1600" selected>Normal</option>
+        <option value="800">Fast</option>
+      </select>
+    </label>
+  </section>
+
+  <div class="layout">
+    <section class="panel p-code">
+      <h2>Code</h2>
+      <ol class="code" id="code" aria-label="Source code"></ol>
+    </section>
+
+    <section class="panel p-diagram">
+      <h2>Diagram</h2>
+      <div class="stage" id="stage"></div>
+      <div class="legend"><span><span class="sw le"></span>Left half</span><span><span class="sw gt"></span>Right half</span><span><span class="sw run"></span>Sorted run</span><span><span class="sw fin"></span>Sorted array</span></div>
+    </section>
+
+    <section class="panel p-table">
+      <h2>Pointers</h2>
+      <ul class="ptable" id="ptable" aria-label="Pointer values"></ul>
+      <h2 class="sub">Call stack</h2>
+      <ul class="frames" id="frames" aria-label="Call stack, newest call first"></ul>
+    </section>
+
+    <section class="panel p-note">
+      <div class="note-box">
+        <div class="eyebrow"><span id="title">Start</span><span id="lineref"></span></div>
+        <p class="note" id="note" aria-live="polite"></p>
+      </div>
+    </section>
+
+    <section class="panel p-formula">
+      <h2>Formula</h2>
+      <div class="formula" id="formula"></div>
+    </section>
+  </div>
+</div>
+
+<script>
+//SIM-START
+function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+var PRESETS = [
+  [8, 1, 7, 9, 2, 6, 3, 5],
+  [1, 2, 3, 4, 5, 6, 7, 8],
+  [8, 7, 6, 5, 4, 3, 2, 1],
+  [1, 5, 3, 7, 2, 6, 4, 8],
+  [4, 2, 4, 1, 4, 3, 2, 4]
+];
+
+function simulate(pi) {
+  var vals = PRESETS[pi].slice(), n = vals.length, q;
+  var order = [], tmp = [];
+  for (q = 0; q < n; q++) { order.push(q); tmp.push(null); }
+  var stack = [], steps = [], cmp = 0, mv = 0, runs = [];
+  var cur = { lo: null, hi: null, mid: null, i: null, j: null, k: null, merging: false };
+  function A(pos) { return vals[order[pos]]; }
+  function setWin() {
+    if (stack.length) { var t = stack[stack.length - 1]; cur.lo = t.lo; cur.hi = t.hi; cur.mid = t.mid; }
+    else { cur.lo = null; cur.hi = null; cur.mid = null; }
+  }
+  function snap(o) {
+    steps.push({
+      lines: o.lines || [], title: o.title, note: o.note,
+      vals: vals.slice(), order: order.slice(), tmp: tmp.slice(),
+      stack: stack.map(function (f) { return { lo: f.lo, hi: f.hi, mid: f.mid, state: f.state }; }),
+      runs: runs.map(function (r) { return r.slice(); }),
+      lo: cur.lo, hi: cur.hi, mid: cur.mid, i: cur.i, j: cur.j, k: cur.k, merging: cur.merging,
+      wrote: o.wrote === undefined ? null : o.wrote, cmp: cmp, mv: mv, rows: o.rows || [], done: !!o.done
+    });
+  }
+
+  function merge(lo, mid, hi) {
+    cur.merging = true;
+    var i = lo, j = mid + 1, k = lo, p;
+    cur.i = i; cur.j = j; cur.k = k;
+    snap({ lines: [11], title: 'Set i, j, k', rows: ['i', 'j', 'k'], note: 'i = lo = ' + i + ', j = mid + 1 = ' + j + ', k = lo = ' + k + '. i reads the left half. j reads the right half. k is the next free place in tmp.' });
+    while (i <= mid && j <= hi) {
+      cmp++;
+      var x = A(i), y = A(j), left = x <= y, wr = k;
+      tmp[k] = left ? order[i] : order[j]; mv++;
+      if (left) i++; else j++;
+      k++;
+      cur.i = i; cur.j = j; cur.k = k;
+      snap({ lines: left ? [12, 13] : [12, 14], title: 'Compare and take', rows: ['i', 'j', 'k', 'comparisons', 'copies to tmp'], wrote: wr,
+        note: 'Compare a[i] = ' + x + ' with a[j] = ' + y + '. Is ' + x + ' <= ' + y + '? ' + (left ? 'Yes.' : 'No.') +
+          (x === y ? ' The values are equal, so the left one goes first. This keeps equal values in their old order.' : '') +
+          ' So tmp[k] = ' + (left ? 'a[i]' : 'a[j]') + ' = ' + (left ? x : y) + '. Then ' + (left ? 'i = ' + i : 'j = ' + j) + ' and k = ' + k + '.' });
+    }
+    while (i <= mid) {
+      var v = A(i); tmp[k] = order[i]; mv++;
+      var wi = k; i++; k++; cur.i = i; cur.k = k;
+      snap({ lines: [15], title: 'Copy the rest', rows: ['i', 'k', 'copies to tmp'], wrote: wi,
+        note: 'The right half has no more elements. Copy a[i] = ' + v + ' to tmp[k]. Then i = ' + i + ' and k = ' + k + '.' });
+    }
+    while (j <= hi) {
+      var w = A(j); tmp[k] = order[j]; mv++;
+      var wj = k; j++; k++; cur.j = j; cur.k = k;
+      snap({ lines: [16], title: 'Copy the rest', rows: ['j', 'k', 'copies to tmp'], wrote: wj,
+        note: 'The left half has no more elements. Copy a[j] = ' + w + ' to tmp[k]. Then j = ' + j + ' and k = ' + k + '.' });
+    }
+    for (p = lo; p <= hi; p++) order[p] = tmp[p];
+    runs = runs.filter(function (r) { return r[1] < lo || r[0] > hi; });
+    runs.push([lo, hi]);
+    cur.i = null; cur.j = null; cur.k = null; cur.merging = false;
+    snap({ lines: [17], title: 'Copy back', rows: [],
+      note: 'The loop sets a[k] = tmp[k] for k = ' + lo + ' to ' + hi + '. The merged run goes back into a. The bars slide to their new places. The positions ' + lo + ' to ' + hi + ' are now sorted.' });
+    for (p = lo; p <= hi; p++) tmp[p] = null;
+  }
+
+  function rec(lo, hi, f) {
+    setWin();
+    if (lo >= hi) {
+      runs.push([lo, lo]);
+      snap({ lines: [2], title: 'One element', note: 'lo < hi is false, because lo = hi = ' + lo + '. One element is already sorted. The call returns.' });
+      stack.pop(); setWin(); return;
+    }
+    snap({ lines: [2], title: 'Test', note: 'lo < hi is true. The range has ' + (hi - lo + 1) + ' elements, so the function goes on.' });
+    var mid = Math.floor((lo + hi) / 2);
+    f.mid = mid; setWin();
+    snap({ lines: [3], title: 'Find the middle', note: 'mid = (lo + hi) / 2 = (' + lo + ' + ' + hi + ') / 2 = ' + mid + '. The left half is the positions ' + lo + ' to ' + mid + '. The right half is the positions ' + (mid + 1) + ' to ' + hi + '.' });
+    var f1 = { lo: lo, hi: mid, mid: null, state: 'sorting the left half' };
+    f.state = 'waits for the left half';
+    stack.push(f1); setWin();
+    snap({ lines: [4], title: 'Sort the left half', note: 'mergesort(a, tmp, lo, mid) is mergesort(a, tmp, ' + lo + ', ' + mid + '). This call sorts the left half.' });
+    rec(lo, mid, f1);
+    var f2 = { lo: mid + 1, hi: hi, mid: null, state: 'sorting the right half' };
+    f.state = 'waits for the right half';
+    stack.push(f2); setWin();
+    snap({ lines: [5], title: 'Sort the right half', note: 'mergesort(a, tmp, mid + 1, hi) is mergesort(a, tmp, ' + (mid + 1) + ', ' + hi + '). This call sorts the right half.' });
+    rec(mid + 1, hi, f2);
+    f.state = 'merging'; setWin();
+    snap({ lines: [6], title: 'Call merge', note: 'Call merge(a, tmp, ' + lo + ', ' + mid + ', ' + hi + '). Both halves are sorted. merge joins them into one sorted run. It writes the result in tmp first.' });
+    merge(lo, mid, hi);
+    stack.pop(); setWin();
+  }
+
+  snap({ title: 'Start', note: 'The array has ' + n + ' numbers. mergesort(a, tmp, 0, ' + (n - 1) + ') sorts all of it. It splits the range, sorts each half, and merges the two halves. Press Next or Play.' });
+  var top = { lo: 0, hi: n - 1, mid: null, state: 'sorting the whole array' };
+  stack.push(top); setWin();
+  snap({ lines: [1], title: 'First call', note: 'Call mergesort(a, tmp, 0, ' + (n - 1) + '). The call goes on the stack.' });
+  rec(0, n - 1, top);
+  cur.lo = null; cur.hi = null; cur.mid = null;
+  snap({ title: 'Sorted', done: true, note: 'All calls have returned. The array is sorted. This run used ' + cmp + ' comparisons.' });
+  return steps;
+}
+
+var QX0 = 76, BW = 56, BG = 10, BASE = 250, UNIT = 22, QVW = 680, QVH = 430, TY = 366;
+function colX(p) { return QX0 + p * (BW + BG); }
+
+function barClass(st, p) {
+  var c = 'bar';
+  if (st.done) return c + ' fin';
+  if (st.lo !== null && (p < st.lo || p > st.hi)) c += ' dim';
+  else if (st.merging) {
+    c += p <= st.mid ? ' le' : ' gt';
+    if ((p <= st.mid && p < st.i) || (p > st.mid && p < st.j)) c += ' used';
+    else if (p === st.i || p === st.j) c += ' cur';
+  }
+  return c;
+}
+
+function overlayHTML(st) {
+  var out = '', n = st.vals.length, p;
+  st.runs.forEach(function (r) {
+    if (r[1] === r[0]) return;
+    out += '<path class="run" d="M' + (colX(r[0]) + 2) + ',' + (BASE + 30) + ' H' + (colX(r[1]) + BW - 2) + '"/>';
+  });
+  if (st.lo !== null) {
+    var a1 = colX(st.lo), a2 = colX(st.hi) + BW, by = BASE + 38;
+    out += '<path class="brk" d="M' + a1 + ',' + (by - 5) + ' V' + by + ' H' + a2 + ' V' + (by - 5) + '"/>';
+  }
+  var tags = {};
+  function add(col, t, k) { (tags[col] = tags[col] || []).push({ t: t, k: k }); }
+  if (st.merging) {
+    if (st.i !== null && st.i <= st.mid) add(st.i, 'i', 'pv');
+    if (st.j !== null && st.j <= st.hi) add(st.j, 'j', 'pn');
+  }
+  Object.keys(tags).forEach(function (col) {
+    var cx = colX(+col) + BW / 2;
+    tags[col].forEach(function (tg, k) {
+      var y = BASE + 56 + k * 24;
+      out += '<g class="tag ' + tg.k + '"><rect x="' + (cx - 15) + '" y="' + y + '" width="30" height="20" rx="4"/><text x="' + cx + '" y="' + (y + 14) + '" text-anchor="middle">' + tg.t + '</text></g>';
+    });
+    out += '<g class="tp ' + tags[col][0].k + '"><path class="hd" d="M' + (cx - 4.5) + ',' + (BASE + 53) + ' L' + cx + ',' + (BASE + 46) + ' L' + (cx + 4.5) + ',' + (BASE + 53) + ' Z"/></g>';
+  });
+  out += '<text class="tlab" x="' + (QX0 - 14) + '" y="' + (TY + 22) + '" text-anchor="end">tmp</text>';
+  for (p = 0; p < n; p++) {
+    var x = colX(p), id = st.tmp[p];
+    if (id === null) {
+      out += '<rect class="tcell" x="' + x + '" y="' + TY + '" width="' + BW + '" height="34" rx="3"/>';
+    } else {
+      out += '<rect class="tfill' + (st.wrote === p ? ' new' : '') + '" x="' + x + '" y="' + TY + '" width="' + BW + '" height="34" rx="3"/>' +
+        '<text class="tval" x="' + (x + BW / 2) + '" y="' + (TY + 22) + '" text-anchor="middle">' + st.vals[id] + '</text>';
+    }
+    out += '<text class="tlab' + (st.merging && st.k === p ? ' on' : '') + '" x="' + (x + BW / 2) + '" y="' + (TY + 52) + '" text-anchor="middle">' + p + '</text>';
+  }
+  if (st.merging && st.k !== null && st.k <= st.hi) {
+    var cx2 = colX(st.k) + BW / 2;
+    out += '<g class="tag pd"><rect x="' + (cx2 - 15) + '" y="' + (TY - 30) + '" width="30" height="20" rx="4"/><text x="' + cx2 + '" y="' + (TY - 16) + '" text-anchor="middle">k</text></g>' +
+      '<g class="tp pn"><path class="hd" d="M' + (cx2 - 4.5) + ',' + (TY - 8) + ' L' + cx2 + ',' + (TY - 1) + ' L' + (cx2 + 4.5) + ',' + (TY - 8) + ' Z"/></g>';
+  }
+  return out;
+}
+
+function tableHTML(st) {
+  function nv(v, on) { return v === null || !on ? 'not set' : String(v); }
+  var m = st.merging;
+  var rows = [
+    ['lo', nv(st.lo, true)], ['hi', nv(st.hi, true)], ['mid', nv(st.mid, true)],
+    ['i', nv(st.i, m)], ['j', nv(st.j, m)], ['k', nv(st.k, m)],
+    ['comparisons', String(st.cmp)], ['copies to tmp', String(st.mv)]
+  ];
+  return rows.map(function (r) {
+    var unset = r[1] === 'not set';
+    return '<li class="pt' + (st.rows.indexOf(r[0]) >= 0 ? ' hi' : '') + '"><span class="k">' + esc(r[0]) + '</span><span class="v' + (unset ? ' unset' : '') + '">' + esc(r[1]) + '</span></li>';
+  }).join('');
+}
+
+function framesHTML(st) {
+  if (!st.stack.length) return '<li class="empty">Empty. ' + (st.done ? 'All calls have returned.' : 'The first call has not started.') + '</li>';
+  return st.stack.slice().reverse().map(function (f, idx) {
+    var depth = st.stack.length - idx;
+    var info = f.mid === null ? 'mid not set' : 'mid = ' + f.mid;
+    return '<li class="frame' + (idx === 0 ? ' top' : '') + '"><div class="fh"><span>mergesort(' + f.lo + ', ' + f.hi + ')</span><span>depth ' + depth + '</span></div><div class="fv"><span>' + info + ' · ' + esc(f.state) + '</span></div></li>';
+  }).join('');
+}
+
+function bestCmp(m) { return m <= 1 ? 0 : bestCmp(Math.floor(m / 2)) + bestCmp(Math.ceil(m / 2)) + Math.floor(m / 2); }
+function worstCmp(m) { return m <= 1 ? 0 : worstCmp(Math.floor(m / 2)) + worstCmp(Math.ceil(m / 2)) + m - 1; }
+
+function formulaHTML(st) {
+  var n = st.vals.length, best = bestCmp(n), worst = worstCmp(n), lg = Math.ceil(Math.log(n) / Math.LN2);
+  var left = '<div><p class="f-h">Recurrence</p>' +
+    '<p class="f-m">T(n) = 2T(n / 2) + <span class="th">Θ</span>(n), T(1) = <span class="th">Θ</span>(1)</p>' +
+    '<p class="f-note">Two calls on halves. Then one merge that reads every element once.</p>' +
+    '<p class="f-h">Solution</p>' +
+    '<p class="f-m">a = 2, b = 2, n<sup>log<sub>b</sub> a</sup> = n</p>' +
+    '<p class="f-m">T(n) = <span class="th">Θ</span>(n log n)</p>' +
+    '<p class="f-note">The merge cost equals n<sup>log<sub>b</sub> a</sup>, so case 2 of the master theorem applies. The best, average, and worst cases are all Θ(n log n). There are log n levels. Each level merges n elements in total.</p>' +
+    '<p class="f-h" style="margin-top:14px">Comparisons in one merge</p>' +
+    '<p class="f-m">best: min(size of left, size of right)</p>' +
+    '<p class="f-m">worst: size of left + size of right − 1</p>' +
+    '<p class="f-h" style="margin-top:14px">Space and stability</p>' +
+    '<p class="f-m">Extra space: <span class="th">Θ</span>(n) for tmp, O(log n) for the stack</p>' +
+    '<p class="f-note">Merge sort is stable. When two values are equal, merge takes the left one first, because the test is a[i] &lt;= a[j].</p></div>';
+  var right = '<div><p class="f-h">With n = ' + n + '</p><div class="tblwrap"><table class="jt">' +
+    '<tr><th>Case</th><th>Comparisons</th></tr>' +
+    '<tr><td style="text-align:left">Best: every merge ends early</td><td>' + best + '</td></tr>' +
+    '<tr><td style="text-align:left">Worst: n⌈log₂ n⌉ − 2<sup>⌈log₂ n⌉</sup> + 1</td><td>' + worst + '</td></tr>' +
+    '<tr><td class="last" style="text-align:left">This run' + (st.done ? '' : ' so far') + '</td><td class="last">' + st.cmp + '</td></tr></table></div>' +
+    '<p class="f-note">The range is halved ' + lg + ' times, so there are ' + lg + ' levels of merges. Each level copies every element to tmp once: n × ' + lg + ' = ' + (n * lg) + ' copies in all.</p>' +
+    (st.done ? '<p class="f-ok">The array is sorted after ' + st.cmp + ' comparisons and ' + st.mv + ' copies to tmp. The worst case for ' + n + ' elements is ' + worst + ' comparisons.</p>' : '') +
+    '</div>';
+  return left + right;
+}
+//SIM-END
+
+var MS_CODE = [
+  'void mergesort(int a[], int tmp[], int lo, int hi) {',
+  '    if (lo < hi) {',
+  '        int mid = (lo + hi) / 2;',
+  '        mergesort(a, tmp, lo, mid);',
+  '        mergesort(a, tmp, mid + 1, hi);',
+  '        merge(a, tmp, lo, mid, hi);',
+  '    }',
+  '}',
+  '',
+  'void merge(int a[], int tmp[], int lo, int mid, int hi) {',
+  '    int i = lo, j = mid + 1, k = lo;',
+  '    while (i <= mid && j <= hi) {',
+  '        if (a[i] <= a[j]) tmp[k++] = a[i++];',
+  '        else              tmp[k++] = a[j++];',
+  '    }',
+  '    while (i <= mid) tmp[k++] = a[i++];',
+  '    while (j <= hi)  tmp[k++] = a[j++];',
+  '    for (k = lo; k <= hi; k++) a[k] = tmp[k];',
+  '}'
+];
+
+function msSkeleton(vals) {
+  var n = vals.length, s = '<svg class="qs" viewBox="0 0 ' + QVW + ' ' + QVH + '" width="' + QVW + '" style="width:100%;max-width:' + QVW + 'px;min-width:520px" role="img" aria-label="Array bars and the tmp array">';
+  s += '<line class="base" x1="' + (QX0 - 10) + '" y1="' + BASE + '" x2="' + (colX(n - 1) + BW + 10) + '" y2="' + BASE + '"/>';
+  for (var p = 0; p < n; p++) s += '<text class="idx" x="' + (colX(p) + BW / 2) + '" y="' + (BASE + 18) + '" text-anchor="middle">' + p + '</text>';
+  s += '<g id="bars">';
+  for (var id = 0; id < n; id++) {
+    var h = vals[id] * UNIT;
+    s += '<g class="bar" id="b' + id + '" style="transform:translate(' + colX(id) + 'px,0)"><rect x="0" y="' + (BASE - h) + '" width="' + BW + '" height="' + h + '" rx="3"/>' +
+      '<text x="' + (BW / 2) + '" y="' + (BASE - h - 7) + '" text-anchor="middle">' + vals[id] + '</text></g>';
+  }
+  s += '</g><g id="over"></g></svg>';
+  return s;
+}
+
+var TRACE = {
+  code: MS_CODE,
+  hl: function (s) {
+    return esc(s)
+      .replace(/\b(mergesort|merge)\b/g, '<span class="fn">$1</span>')
+      .replace(/\b(void|int|if|else|for|while)\b/g, '<span class="kw">$1</span>');
+  },
+  simulate: function () { return simulate(+document.getElementById('selInput').value); },
+  render: function (s) {
+    var stage = document.getElementById('stage'), sig = s.vals.join(',');
+    if (stage.getAttribute('data-sig') !== sig) {
+      stage.innerHTML = msSkeleton(s.vals);
+      stage.setAttribute('data-sig', sig);
+    }
+    for (var p = 0; p < s.order.length; p++) {
+      var g = document.getElementById('b' + s.order[p]);
+      g.setAttribute('class', barClass(s, p));
+      g.style.transform = 'translate(' + colX(p) + 'px,0)';
+    }
+    document.getElementById('over').innerHTML = overlayHTML(s);
+    document.getElementById('ptable').innerHTML = tableHTML(s);
+    document.getElementById('frames').innerHTML = framesHTML(s);
+    document.getElementById('formula').innerHTML = formulaHTML(s);
+  }
+};
+
+</script>
+<script src="../../assets/player.js"></script>
+</body>
+</html>

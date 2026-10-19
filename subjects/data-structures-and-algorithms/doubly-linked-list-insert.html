@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Doubly Linked List Insert</title>
+<link rel="stylesheet" href="../../assets/base.css">
+<link rel="stylesheet" href="../../assets/trace.css">
+<script src="../../assets/theme.js"></script>
+<style>
+/* This page has no formula panel. These rules keep the diagram panel as it was before trace.css added the formula layout. */
+.layout { grid-template-areas: "code diagram" "table note"; }
+.p-diagram { display: block; }
+.p-diagram .stage { display: block; flex: none; }
+.p-diagram .stage svg { margin: 0 auto; }
+@media (max-width: 860px) { .layout { grid-template-areas: "note" "diagram" "code" "table"; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <a class="back" href="index.html">&larr; Data Structures and Algorithms</a>
+  <header>
+    <div class="intro">
+      <h1>Insert a node in a doubly linked list</h1>
+      <p>The function <code>insertBetween</code> puts a new node between two neighbors. Four pointer changes do the work. Step through them and watch both directions of the list.</p>
+    </div>
+    <div class="pick">
+      <span class="label" id="gaplabel">Insert between</span>
+      <div class="seg" role="group" aria-labelledby="gaplabel" id="seg">
+        <button type="button" data-g="0" aria-pressed="false">5 &#8644; 10</button>
+        <button type="button" data-g="1" aria-pressed="true">10 &#8644; 30</button>
+        <button type="button" data-g="2" aria-pressed="false">30 &#8644; 40</button>
+      </div>
+    </div>
+  </header>
+
+  <section class="panel controls" aria-label="Playback controls">
+    <button type="button" class="btn" id="reset">Reset</button>
+    <button type="button" class="btn" id="prev">Back</button>
+    <button type="button" class="btn primary" id="play">Play</button>
+    <button type="button" class="btn" id="next">Next</button>
+    <input type="range" class="scrub" id="scrub" min="0" max="1" value="0" aria-label="Step">
+    <span class="stepno" id="stepno">Step 0 of 0</span>
+    <label class="spd"><span class="label">Speed</span>
+      <select id="speed">
+        <option value="2600">Slow</option>
+        <option value="1600" selected>Normal</option>
+        <option value="800">Fast</option>
+      </select>
+    </label>
+  </section>
+
+  <div class="layout">
+    <section class="panel p-code">
+      <h2>Code</h2>
+      <ol class="code" id="code" aria-label="Source code"></ol>
+    </section>
+
+    <section class="panel p-diagram">
+      <h2>List in memory</h2>
+      <div class="stage" id="stage"></div>
+      <div class="legend">
+        <span><i></i>next link</span>
+        <span><i class="rev"></i>prev link</span>
+        <span><i class="chg"></i>Link changed in this step</span>
+        <span><svg viewBox="0 0 20 16" aria-hidden="true"><path d="M10 0 V6 M1 6 H19 M4.5 10.5 H15.5 M8 15 H12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>NULL</span>
+        <span><b style="font-family:var(--font-mono)">?</b>Not set yet</span>
+      </div>
+    </section>
+
+    <section class="panel p-table">
+      <h2>Pointers</h2>
+      <ul class="ptable" id="ptable" aria-label="Pointer values"></ul>
+    </section>
+
+    <section class="panel p-note">
+      <div class="note-box">
+        <div class="eyebrow"><span id="title">Start</span><span id="lineref"></span></div>
+        <p class="note" id="note" aria-live="polite"></p>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+//SIM-START
+function simulate(g) {
+  var base = [5, 10, 30, 40], xs = [7, 20, 35];
+  var aId = base[g], bId = base[g + 1], x = xs[g];
+  var nodes = {};
+  base.forEach(function (v, k) {
+    nodes[v] = { val: v, prev: k ? base[k - 1] : null, next: k < base.length - 1 ? base[k + 1] : null };
+  });
+  var vars = { a: null, b: null, n: null }, steps = [], linked = false;
+  function clone(o) { return JSON.parse(JSON.stringify(o)); }
+  function chain(arr) { return arr.join(' ⇄ '); }
+  function snap(o) {
+    steps.push({
+      line: o.line, title: o.title, note: o.note,
+      changed: o.changed || null, hi: o.hi || [],
+      inline: !!o.inline, linked: linked,
+      aId: aId, bId: bId, base: base.slice(),
+      vars: clone(vars), nodes: clone(nodes), order: o.order || null
+    });
+  }
+  snap({ line: 0, title: 'Start', note: 'The list is ' + chain(base) + '. Each node has a prev link and a next link. We call insertBetween with a = node ' + aId + ', b = node ' + bId + ', and x = ' + x + '. The new node goes between a and b.' });
+  vars.a = aId; vars.b = bId;
+  snap({ line: 6, title: 'Call', hi: ['a', 'b'], note: 'The function starts. The parameter a points to node ' + aId + '. The parameter b points to node ' + bId + '. Now a->next is b, and b->prev is a.' });
+  nodes.n = { val: null, prev: '?', next: '?' }; vars.n = 'n';
+  snap({ line: 7, title: 'Allocate', hi: ['n'], note: 'malloc makes a new node in memory. n points to it. Its fields hold garbage for now. The diagram shows them as ?.' });
+  nodes.n.val = x;
+  snap({ line: 8, title: 'Store the value', hi: ['n->data'], note: 'n->data = x. The new node holds ' + x + '. It is not in the list yet.' });
+  nodes.n.prev = aId;
+  snap({ line: 9, title: 'Set n->prev', hi: ['n->prev'], changed: { id: 'n', field: 'prev' }, note: 'n->prev = a. The new node points back to node ' + aId + '. Node ' + aId + ' does not know about the new node yet. The list has not changed.' });
+  nodes.n.next = bId;
+  snap({ line: 10, title: 'Set n->next', hi: ['n->next'], changed: { id: 'n', field: 'next' }, note: 'n->next = b. The new node points forward to node ' + bId + '. The list still uses its old links. Nothing is lost.' });
+  nodes[aId].next = 'n';
+  snap({ line: 11, title: 'Link a to n', hi: ['a->next'], changed: { id: aId, field: 'next' }, note: 'a->next = n. Node ' + aId + ' now points forward to the new node. The old forward link to node ' + bId + ' is gone. But b->prev still points to node ' + aId + '. The two directions disagree for now.' });
+  nodes[bId].prev = 'n'; linked = true;
+  snap({ line: 12, title: 'Link b to n', hi: ['b->prev'], changed: { id: bId, field: 'prev' }, note: 'b->prev = n. Node ' + bId + ' now points back to the new node. Both directions agree. The new node is part of the list.' });
+  var order = [], id = base[0], guard = 0;
+  while (id !== null && guard++ < 20) { order.push(String(id)); id = nodes[id].next; }
+  snap({ line: 0, title: 'Done', inline: true, order: order,
+    note: 'The list is now ' + chain(order.map(function (k) { return nodes[k].val; })) + '. The drawing is straight again. The links did not change.' });
+  return steps;
+}
+
+var NW = 96, NH = 48, GAP = 64, Y0 = 68, DY = 128, VW = 784, VH = 300;
+function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function layout(st) {
+  var pos = {};
+  if (st.inline) {
+    st.order.forEach(function (id, k) { pos[id] = { x: 24 + k * (NW + GAP), y: Y0 }; });
+  } else {
+    st.base.forEach(function (id, k) { pos[id] = { x: 104 + k * (NW + GAP), y: Y0 }; });
+    if (st.nodes.n) {
+      var a = pos[st.aId], b = pos[st.bId];
+      pos.n = { x: (a.x + b.x) / 2, y: Y0 + DY };
+    }
+  }
+  return pos;
+}
+function cellMark(x, y, v) {
+  if (v === '?') return '<text class="unk" x="' + x + '" y="' + (y + 5) + '" text-anchor="middle">?</text>';
+  return '<circle cx="' + x + '" cy="' + y + '" r="4"/>';
+}
+function headPath(kind, x, y) {
+  if (kind === 'r') return 'M' + (x - 9) + ',' + (y - 5.5) + ' L' + x + ',' + y + ' L' + (x - 9) + ',' + (y + 5.5) + ' Z';
+  if (kind === 'l') return 'M' + (x + 9) + ',' + (y - 5.5) + ' L' + x + ',' + y + ' L' + (x + 9) + ',' + (y + 5.5) + ' Z';
+  if (kind === 'u') return 'M' + (x - 5.5) + ',' + (y + 9) + ' L' + x + ',' + y + ' L' + (x + 5.5) + ',' + (y + 9) + ' Z';
+  return 'M' + (x - 5.5) + ',' + (y - 9) + ' L' + x + ',' + y + ' L' + (x + 5.5) + ',' + (y - 9) + ' Z';
+}
+function linkSVG(pos, id, f, t, chg) {
+  var s = pos[id];
+  var cls = 'lnk ' + (f === 'next' ? 'fwd' : 'bwd') + (chg ? ' chg' : '');
+  var sx = f === 'next' ? s.x + 84 : s.x + 12;
+  var sy = f === 'next' ? s.y + 16 : s.y + 32;
+  if (t === null) {
+    var b = s.y + NH + 14;
+    return '<g class="' + cls + '"><path class="main" pathLength="1" d="M' + sx + ',' + sy + ' L' + sx + ',' + b + '"/>' +
+      '<path class="bars" d="M' + (sx - 10) + ',' + b + ' H' + (sx + 10) + ' M' + (sx - 6.5) + ',' + (b + 5) + ' H' + (sx + 6.5) + ' M' + (sx - 3) + ',' + (b + 10) + ' H' + (sx + 3) + '"/></g>';
+  }
+  var d = pos[t], path, head;
+  if (d.y === s.y) {
+    if (f === 'next') {
+      path = 'M' + sx + ',' + sy + ' L' + (d.x - 7) + ',' + sy;
+      head = headPath('r', d.x, sy);
+    } else {
+      path = 'M' + sx + ',' + sy + ' L' + (d.x + NW + 7) + ',' + sy;
+      head = headPath('l', d.x + NW, sy);
+    }
+  } else if (d.y < s.y) {
+    var tx = d.x + (d.x < s.x ? 66 : 30), ty = d.y + NH, ym = (sy + ty) / 2;
+    path = 'M' + sx + ',' + sy + ' C' + sx + ',' + ym + ' ' + tx + ',' + ym + ' ' + tx + ',' + (ty + 8);
+    head = headPath('u', tx, ty);
+  } else {
+    var ux = d.x + (f === 'next' ? 30 : 66), uy = d.y;
+    path = f === 'next'
+      ? 'M' + sx + ',' + sy + ' C' + (sx + 46) + ',' + sy + ' ' + ux + ',' + (uy - 50) + ' ' + ux + ',' + (uy - 8)
+      : 'M' + sx + ',' + sy + ' C' + sx + ',' + (sy + 60) + ' ' + ux + ',' + (uy - 50) + ' ' + ux + ',' + (uy - 8);
+    head = headPath('d', ux, uy);
+  }
+  return '<g class="' + cls + '"><path class="main" pathLength="1" d="' + path + '"/><path class="hd" d="' + head + '"/></g>';
+}
+function label(st, id) {
+  if (id === 'n') { var v = st.nodes.n.val; return v === null ? '?' : String(v); }
+  return String(id);
+}
+function drawSVG(st) {
+  var pos = layout(st), out = '';
+  var ids = Object.keys(st.nodes);
+  var desc = [];
+  ids.forEach(function (id) {
+    var nd = st.nodes[id];
+    function tgt(v) { return v === null ? 'NULL' : (v === '?' ? 'not set' : 'node ' + label(st, v)); }
+    desc.push('node ' + label(st, id) + ': prev ' + tgt(nd.prev) + ', next ' + tgt(nd.next));
+  });
+  out += '<svg viewBox="0 0 ' + VW + ' ' + VH + '" width="' + VW + '" style="width:100%;max-width:' + VW + 'px;min-width:560px" role="img" aria-label="' + esc(desc.join('; ')) + '">';
+
+  ids.forEach(function (id) {
+    var p = pos[id], nd = st.nodes[id];
+    var cur = st.changed && String(st.changed.id) === id;
+    var fresh = id === 'n' && !st.linked;
+    out += '<g class="node' + (cur ? ' cur' : '') + (fresh ? ' fresh' : '') + '">' +
+      '<rect x="' + p.x + '" y="' + p.y + '" width="' + NW + '" height="' + NH + '" rx="6"/>' +
+      '<line x1="' + (p.x + 24) + '" y1="' + p.y + '" x2="' + (p.x + 24) + '" y2="' + (p.y + NH) + '"/>' +
+      '<line x1="' + (p.x + 72) + '" y1="' + p.y + '" x2="' + (p.x + 72) + '" y2="' + (p.y + NH) + '"/>' +
+      '<text class="' + (nd.val === null ? 'unk' : 'val') + '" x="' + (p.x + 48) + '" y="' + (p.y + 30) + '" text-anchor="middle">' + (nd.val === null ? '?' : nd.val) + '</text>' +
+      cellMark(p.x + 12, p.y + 32, nd.prev) + cellMark(p.x + 84, p.y + 16, nd.next) + '</g>';
+  });
+
+  ids.forEach(function (id) {
+    ['next', 'prev'].forEach(function (f) {
+      var t = st.nodes[id][f];
+      if (t === '?') return;
+      var chg = st.changed && String(st.changed.id) === id && st.changed.field === f;
+      out += linkSVG(pos, id, f, t, chg);
+    });
+  });
+
+  var tags = [];
+  if (st.vars.a !== null) tags.push({ id: String(st.vars.a), t: 'a', k: 'pv' });
+  if (st.vars.b !== null) tags.push({ id: String(st.vars.b), t: 'b', k: 'pv' });
+  if (st.vars.n !== null) tags.push({ id: 'n', t: 'n', k: 'pn' });
+  tags.forEach(function (tg) {
+    var p = pos[tg.id], cx = p.x + NW / 2, w = 30, h = 20;
+    if (p.y > Y0) {
+      var ty = p.y + NH + 16;
+      out += '<g class="tag ' + tg.k + '"><rect x="' + (cx - w / 2) + '" y="' + ty + '" width="' + w + '" height="' + h + '" rx="4"/><text x="' + cx + '" y="' + (ty + 14) + '" text-anchor="middle">' + tg.t + '</text></g>';
+      out += '<g class="tp ' + tg.k + '"><path d="M' + cx + ',' + (p.y + NH + 16) + ' L' + cx + ',' + (p.y + NH + 8) + '"/><path class="hd" d="M' + (cx - 4.5) + ',' + (p.y + NH + 9) + ' L' + cx + ',' + (p.y + NH + 2) + ' L' + (cx + 4.5) + ',' + (p.y + NH + 9) + ' Z"/></g>';
+    } else {
+      var y = p.y - 16 - h;
+      out += '<g class="tag ' + tg.k + '"><rect x="' + (cx - w / 2) + '" y="' + y + '" width="' + w + '" height="' + h + '" rx="4"/><text x="' + cx + '" y="' + (y + 14) + '" text-anchor="middle">' + tg.t + '</text></g>';
+      out += '<g class="tp ' + tg.k + '"><path d="M' + cx + ',' + (p.y - 16) + ' L' + cx + ',' + (p.y - 8) + '"/><path class="hd" d="M' + (cx - 4.5) + ',' + (p.y - 9) + ' L' + cx + ',' + (p.y - 2) + ' L' + (cx + 4.5) + ',' + (p.y - 9) + ' Z"/></g>';
+    }
+  });
+  return out + '</svg>';
+}
+function tableRows(st) {
+  function show(v) {
+    if (v === undefined) return null;
+    if (v === null) return 'NULL';
+    if (v === '?') return '?';
+    return v === 'n' ? 'new node' : 'node ' + v;
+  }
+  var a = st.nodes[st.aId], b = st.nodes[st.bId], n = st.nodes.n;
+  return [
+    ['a', st.vars.a === null ? undefined : show(st.vars.a)],
+    ['b', st.vars.b === null ? undefined : show(st.vars.b)],
+    ['n', st.vars.n === null ? undefined : show(st.vars.n)],
+    ['a->next', st.vars.a === null ? undefined : show(a.next)],
+    ['b->prev', st.vars.b === null ? undefined : show(b.prev)],
+    ['n->prev', n ? show(n.prev) : undefined],
+    ['n->next', n ? show(n.next) : undefined],
+    ['n->data', n ? (n.val === null ? '?' : String(n.val)) : undefined]
+  ];
+}
+//SIM-END
+
+(function () {
+  var CODE = [
+    'typedef struct dnode {',
+    '    int data;',
+    '    struct dnode *prev, *next;',
+    '} dnode;',
+    '',
+    'void insertBetween(dnode *a, dnode *b, int x) {',
+    '    dnode *n = malloc(sizeof(dnode));',
+    '    n->data = x;',
+    '    n->prev = a;',
+    '    n->next = b;',
+    '    a->next = n;',
+    '    b->prev = n;',
+    '}'
+  ];
+  function $(id) { return document.getElementById(id); }
+  function hl(s) {
+    return esc(s)
+      .replace(/\b(insertBetween|malloc)\b/g, '<span class="fn">$1</span>')
+      .replace(/\b(typedef|struct|void|int|sizeof)\b/g, '<span class="kw">$1</span>')
+      .replace(/\b(dnode|NULL)\b/g, '<span class="ty">$1</span>');
+  }
+  var g = 1;
+
+  window.TRACE = {
+    code: CODE,
+    hl: hl,
+    simulate: function () {
+      return simulate(g).map(function (s) { s.lines = s.line ? [s.line] : []; return s; });
+    },
+    render: function (s) {
+      $('stage').innerHTML = drawSVG(s);
+      $('ptable').innerHTML = tableRows(s).map(function (r) {
+        var unset = r[1] === undefined;
+        return '<li class="pt' + (s.hi.indexOf(r[0]) >= 0 ? ' hi' : '') + '"><span class="k">' + esc(r[0]) + '</span><span class="v' + (unset ? ' unset' : '') + '">' + (unset ? 'not set' : esc(r[1])) + '</span></li>';
+      }).join('');
+    },
+    bind: function (rebuild) {
+      $('seg').addEventListener('click', function (e) {
+        var b = e.target.closest('button');
+        if (!b) return;
+        g = +b.getAttribute('data-g');
+        var all = $('seg').querySelectorAll('button');
+        for (var k = 0; k < all.length; k++) all[k].setAttribute('aria-pressed', all[k] === b ? 'true' : 'false');
+        rebuild();
+      });
+    }
+  };
+})();
+</script>
+<script src="../../assets/player.js"></script>
+</body>
+</html>

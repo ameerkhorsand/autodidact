@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Floyd Cycle Detection</title>
+<link rel="stylesheet" href="../../assets/base.css">
+<link rel="stylesheet" href="../../assets/trace.css">
+<script src="../../assets/theme.js"></script>
+</head>
+<body>
+
+<div class="wrap">
+  <a class="back" href="index.html">&larr; Data Structures and Algorithms</a>
+  <header>
+    <div class="intro">
+      <h1>Floyd’s cycle detection</h1>
+      <p>Two pointers walk the list. slow moves one node at a time. fast moves two. If they meet, the list has a cycle. A second pass then finds the node where the cycle starts.</p>
+    </div>
+    <div class="picks"><div class="pick"><label class="label" for="selShape">List shape</label><select id="selShape" class="param"><option value="0" selected>3 nodes, then a cycle of 4</option><option value="1">2 nodes, then a cycle of 5</option><option value="2">5 nodes, then a cycle of 3</option><option value="3">The head is in a cycle of 5</option><option value="4">No cycle (6 nodes)</option></select></div></div>
+  </header>
+
+  <section class="panel controls" aria-label="Playback controls">
+    <button type="button" class="btn" id="reset">Reset</button>
+    <button type="button" class="btn" id="prev">Back</button>
+    <button type="button" class="btn primary" id="play">Play</button>
+    <button type="button" class="btn" id="next">Next</button>
+    <input type="range" class="scrub" id="scrub" min="0" max="1" value="0" aria-label="Step">
+    <span class="stepno" id="stepno">Step 0 of 0</span>
+    <label class="spd"><span class="label">Speed</span>
+      <select id="speed">
+        <option value="2600">Slow</option>
+        <option value="1600" selected>Normal</option>
+        <option value="800">Fast</option>
+      </select>
+    </label>
+  </section>
+
+  <div class="layout">
+    <section class="panel p-code">
+      <h2>Code</h2>
+      <ol class="code" id="code" aria-label="Source code"></ol>
+    </section>
+
+    <section class="panel p-diagram">
+      <h2>Diagram</h2>
+      <div class="stage" id="stage"></div>
+      <div class="legend"><span><i></i>next link</span><span><svg viewBox="0 0 20 16" aria-hidden="true"><path d="M10 0 V6 M1 6 H19 M4.5 10.5 H15.5 M8 15 H12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>NULL</span></div>
+    </section>
+
+    <section class="panel p-table">
+      <h2>Pointers</h2>
+      <ul class="ptable" id="ptable" aria-label="Pointer values"></ul>
+    </section>
+
+    <section class="panel p-note">
+      <div class="note-box">
+        <div class="eyebrow"><span id="title">Start</span><span id="lineref"></span></div>
+        <p class="note" id="note" aria-live="polite"></p>
+      </div>
+    </section>
+
+    <section class="panel p-formula">
+      <h2>Formula</h2>
+      <div class="formula" id="formula"></div>
+    </section>
+  </div>
+</div>
+
+<script>
+//SIM-START
+function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+// t = nodes before the cycle, c = nodes in the cycle. c = 0 means a plain list of t nodes.
+var PRESETS = [{ t: 3, c: 4 }, { t: 2, c: 5 }, { t: 5, c: 3 }, { t: 0, c: 5 }, { t: 6, c: 0 }];
+
+// Number of loop passes until slow and fast meet.
+function meetSteps(t, c) {
+  if (c === 0) return null;
+  var N = t + c;
+  function nx(i) { return i < N ? i + 1 : t + 1; }
+  var s = 1, f = 1, n = 0;
+  do { s = nx(s); f = nx(nx(f)); n++; } while (s !== f);
+  return n;
+}
+
+function simulate(pi) {
+  var pr = PRESETS[pi], t = pr.t, c = pr.c, N = c > 0 ? t + c : t;
+  var next = {}, i;
+  for (i = 1; i <= N; i++) next[i] = i < N ? i + 1 : (c > 0 ? t + 1 : null);
+  var cur = { slow: null, fast: null }, iter = 0, moves = 0, phase = 1, steps = [];
+  function sh(v) { return v === null ? 'NULL' : 'node ' + v; }
+  function snap(o) {
+    steps.push({
+      lines: o.lines || [], title: o.title, note: o.note,
+      t: t, c: c, N: N, next: Object.assign({}, next),
+      slow: cur.slow, fast: cur.fast, phase: phase, iter: iter, moves: moves,
+      start: o.start || null, result: o.result || null, hi: o.hi || []
+    });
+  }
+  snap({ title: 'Start', note: 'The list has ' + N + ' nodes. Node 1 is the head. We call hasCycle(head). It uses two pointers, slow and fast.' });
+  cur.slow = 1;
+  snap({ lines: [3], title: 'Start slow', hi: ['slow'], note: 'slow = head. slow points to node 1.' });
+  cur.fast = 1;
+  snap({ lines: [4], title: 'Start fast', hi: ['fast'], note: 'fast = head. fast also points to node 1.' });
+
+  var meet = null;
+  while (true) {
+    var ok1 = cur.fast !== null, ok2 = ok1 && next[cur.fast] !== null;
+    if (!(ok1 && ok2)) {
+      snap({ lines: [6], title: 'Loop test', note: (!ok1 ? 'fast is NULL' : 'fast.next is NULL') + ', so the test is false. The loop ends.' });
+      break;
+    }
+    snap({ lines: [6], title: 'Loop test', note: 'fast is not NULL, and fast.next is not NULL. The test is true. The loop goes on.' });
+    cur.slow = next[cur.slow]; iter++;
+    snap({ lines: [7], title: 'Move slow', hi: ['slow', 'phase 1 steps'], note: 'slow = slow.next. slow moves one node, to node ' + cur.slow + '.' });
+    cur.fast = next[next[cur.fast]];
+    snap({ lines: [8], title: 'Move fast', hi: ['fast'], note: cur.fast === null
+      ? 'fast = fast.next.next. fast moves two nodes and reaches NULL.'
+      : 'fast = fast.next.next. fast moves two nodes, to node ' + cur.fast + '.' });
+    if (cur.slow === cur.fast) {
+      snap({ lines: [9], title: 'Compare', hi: ['slow', 'fast'], note: 'slow == fast. Both point to node ' + cur.slow + '. The test is true.' });
+      meet = cur.slow;
+      snap({ lines: [10], title: 'Cycle found', hi: ['slow', 'fast'], result: 'cycle', note: 'return true. The list has a cycle. slow and fast meet at node ' + meet + '. This is not always the start of the cycle.' });
+      break;
+    }
+    snap({ lines: [9], title: 'Compare', note: 'slow is ' + sh(cur.slow) + '. fast is ' + sh(cur.fast) + '. They are different, so the test is false.' });
+  }
+
+  if (meet === null) {
+    snap({ lines: [14], title: 'No cycle', result: 'none', note: 'return false. fast reached the end of the list, so the list has no cycle.' });
+    return steps;
+  }
+
+  phase = 2; cur.slow = 1;
+  snap({ lines: [19], title: 'Phase 2', hi: ['slow'], note: 'Phase 2 finds the start of the cycle. slow = head, so slow goes back to node 1. fast stays at node ' + meet + '.' });
+  while (true) {
+    if (cur.slow === cur.fast) {
+      snap({ lines: [20], title: 'Loop test', note: 'slow == fast. Both point to node ' + cur.slow + '. The test is false. The loop ends.' });
+      break;
+    }
+    snap({ lines: [20], title: 'Loop test', note: 'slow is node ' + cur.slow + '. fast is node ' + cur.fast + '. They are different, so the loop goes on.' });
+    cur.slow = next[cur.slow]; cur.fast = next[cur.fast]; moves++;
+    snap({ lines: [21, 22], title: 'Move both', hi: ['slow', 'fast', 'phase 2 steps'], note: 'Both pointers move one node. slow is node ' + cur.slow + '. fast is node ' + cur.fast + '.' });
+  }
+  snap({ lines: [25], title: 'Cycle start', start: cur.slow, result: 'start', hi: ['slow'], note: 'return slow. Node ' + cur.slow + ' is the start of the cycle.' });
+  return steps;
+}
+
+var FW = 640, FH = 300, FCY = 150, FNR = 18, FSTEP = 72;
+function r1(v) { return Math.round(v * 10) / 10; }
+function arcShape(cx, cy, rad, tA, span, nr) {
+  var d = (nr + 5) / rad, e = 8 / rad;
+  var t1 = tA + d, t2 = tA + span - d, te = t2 - e;
+  var A = { x: cx + rad * Math.cos(t1), y: cy + rad * Math.sin(t1) };
+  var B = { x: cx + rad * Math.cos(te), y: cy + rad * Math.sin(te) };
+  var tip = { x: cx + rad * Math.cos(t2), y: cy + rad * Math.sin(t2) };
+  var large = (te - t1) > Math.PI ? 1 : 0;
+  var tx = -Math.sin(t2), ty = Math.cos(t2), nx = Math.cos(t2), ny = Math.sin(t2);
+  var p1 = { x: tip.x - 9 * tx + 5.5 * nx, y: tip.y - 9 * ty + 5.5 * ny };
+  var p2 = { x: tip.x - 9 * tx - 5.5 * nx, y: tip.y - 9 * ty - 5.5 * ny };
+  return {
+    path: 'M' + r1(A.x) + ',' + r1(A.y) + ' A' + rad + ',' + rad + ' 0 ' + large + ' 1 ' + r1(B.x) + ',' + r1(B.y),
+    head: 'M' + r1(p1.x) + ',' + r1(p1.y) + ' L' + r1(tip.x) + ',' + r1(tip.y) + ' L' + r1(p2.x) + ',' + r1(p2.y) + ' Z'
+  };
+}
+function layoutF(st) {
+  var pos = {}, t = st.t, c = st.c, i, j, cx = 0, Rc = 0;
+  for (i = 1; i <= t; i++) pos[i] = { x: 40 + (i - 1) * FSTEP, y: FCY };
+  if (c > 0) {
+    var sx = 40 + t * FSTEP;
+    Rc = 44 + c * 10; cx = sx + Rc;
+    for (j = 0; j < c; j++) {
+      var th = Math.PI + 2 * Math.PI * j / c;
+      pos[t + 1 + j] = { x: cx + Rc * Math.cos(th), y: FCY + Rc * Math.sin(th), th: th, cyc: true, first: j === 0 };
+    }
+  }
+  var minX = 1e9, maxX = -1e9;
+  Object.keys(pos).forEach(function (id) {
+    minX = Math.min(minX, pos[id].x - FNR); maxX = Math.max(maxX, pos[id].x + FNR);
+  });
+  if (c > 0) maxX = Math.max(maxX, cx + Rc + FNR);
+  var shift = (FW - (maxX - minX)) / 2 - minX;
+  Object.keys(pos).forEach(function (id) { pos[id].x += shift; });
+  return { pos: pos, cx: cx + shift, Rc: Rc };
+}
+
+function drawSVG(st) {
+  var L = layoutF(st), pos = L.pos, out = '', id, N = st.N;
+  var desc = 'List of ' + N + ' nodes' + (st.c > 0 ? ' with a cycle of ' + st.c + ' nodes' : ' without a cycle') + '. slow is at ' + (st.slow === null ? 'nothing' : 'node ' + st.slow) + '. fast is at ' + (st.fast === null ? 'NULL or nothing' : 'node ' + st.fast) + '.';
+  out += '<svg viewBox="0 0 ' + FW + ' ' + FH + '" width="' + FW + '" style="width:100%;max-width:' + FW + 'px;min-width:440px" role="img" aria-label="' + esc(desc) + '">';
+
+  for (id = 1; id <= N; id++) {
+    var tg = st.next[id], p = pos[id];
+    if (tg === null) {
+      var b = p.y + FNR + 16;
+      out += '<g class="lnk fwd"><path class="main" d="M' + r1(p.x) + ',' + r1(p.y + FNR) + ' L' + r1(p.x) + ',' + r1(b) + '"/>' +
+        '<path class="bars" d="M' + r1(p.x - 10) + ',' + r1(b) + ' H' + r1(p.x + 10) + ' M' + r1(p.x - 6.5) + ',' + r1(b + 5) + ' H' + r1(p.x + 6.5) + ' M' + r1(p.x - 3) + ',' + r1(b + 10) + ' H' + r1(p.x + 3) + '"/></g>';
+    } else if (p.cyc && pos[tg].cyc) {
+      var sh = arcShape(L.cx, FCY, L.Rc, p.th, 2 * Math.PI / st.c, FNR);
+      out += '<g class="lnk fwd"><path class="main" d="' + sh.path + '"/><path class="hd" d="' + sh.head + '"/></g>';
+    } else {
+      var q = pos[tg], dx = q.x - p.x, dy = q.y - p.y, len = Math.sqrt(dx * dx + dy * dy), ux = dx / len, uy = dy / len;
+      var sx0 = p.x + ux * (FNR + 3), sy0 = p.y + uy * (FNR + 3);
+      var tipx = q.x - ux * (FNR + 3), tipy = q.y - uy * (FNR + 3);
+      var ex = tipx - ux * 8, ey = tipy - uy * 8;
+      var h1x = tipx - ux * 9 - uy * 5.5, h1y = tipy - uy * 9 + ux * 5.5;
+      var h2x = tipx - ux * 9 + uy * 5.5, h2y = tipy - uy * 9 - ux * 5.5;
+      out += '<g class="lnk fwd"><path class="main" d="M' + r1(sx0) + ',' + r1(sy0) + ' L' + r1(ex) + ',' + r1(ey) + '"/>' +
+        '<path class="hd" d="M' + r1(h1x) + ',' + r1(h1y) + ' L' + r1(tipx) + ',' + r1(tipy) + ' L' + r1(h2x) + ',' + r1(h2y) + ' Z"/></g>';
+    }
+  }
+
+  for (id = 1; id <= N; id++) {
+    var pp = pos[id];
+    var cls = 'cn' + (st.start === id ? ' start' : (st.slow !== null && st.slow === st.fast && st.slow === id ? ' meet' : ''));
+    out += '<g class="' + cls + '"><circle cx="' + r1(pp.x) + '" cy="' + r1(pp.y) + '" r="' + FNR + '"/><text x="' + r1(pp.x) + '" y="' + r1(pp.y + 5) + '" text-anchor="middle">' + id + '</text></g>';
+  }
+
+  var tags = {};
+  function addT(nid, t, k) { (tags[nid] = tags[nid] || []).push({ t: t, k: k }); }
+  if (st.slow !== null) addT(st.slow, 'slow', 'pv');
+  if (st.fast !== null) addT(st.fast, 'fast', 'pn');
+  if (st.start !== null) addT(st.start, 'start', 'pd');
+  Object.keys(tags).forEach(function (nid) {
+    var p2 = pos[nid], off = 0;
+    tags[nid].forEach(function (tg) {
+      var w = Math.round(tg.t.length * 7.4 + 16), h = 20, cxp, cyp;
+      if (p2.cyc && !p2.first) {
+        var th = p2.th, proj = Math.abs(Math.cos(th)) * w / 2 + Math.abs(Math.sin(th)) * h / 2;
+        cxp = p2.x + Math.cos(th) * (FNR + 8 + off + proj);
+        cyp = p2.y + Math.sin(th) * (FNR + 8 + off + proj);
+        off += 2 * proj + 4;
+      } else if (p2.cyc && p2.first) {
+        var d = -3 * Math.PI / 4, pj = Math.abs(Math.cos(d)) * w / 2 + Math.abs(Math.sin(d)) * h / 2;
+        cxp = p2.x + Math.cos(d) * (FNR + 8 + off + pj);
+        cyp = p2.y + Math.sin(d) * (FNR + 8 + off + pj);
+        off += 2 * pj + 4;
+      } else {
+        cxp = p2.x; cyp = p2.y - FNR - 8 - off - h / 2;
+        off += h + 4;
+      }
+      out += '<g class="tag ' + tg.k + '"><rect x="' + r1(cxp - w / 2) + '" y="' + r1(cyp - h / 2) + '" width="' + w + '" height="' + h + '" rx="4"/>' +
+        '<text x="' + r1(cxp) + '" y="' + r1(cyp + 4) + '" text-anchor="middle">' + tg.t + '</text></g>';
+    });
+  });
+  return out + '</svg>';
+}
+
+function tableHTML(st) {
+  function sh(v) { return v === null ? 'NULL' : 'node ' + v; }
+  var rows = [
+    ['slow', st.slow === undefined || (st.slow === null && st.lines.length === 0) ? 'not set' : sh(st.slow)],
+    ['fast', (st.fast === null && (st.lines.length === 0 || st.lines[0] === 3)) ? 'not set' : sh(st.fast)],
+    ['phase 1 steps', String(st.iter)],
+    ['phase 2 steps', st.phase === 2 ? String(st.moves) : '–']
+  ];
+  return rows.map(function (r) {
+    var unset = r[1] === 'not set' || r[1] === '–';
+    return '<li class="pt' + (st.hi.indexOf(r[0]) >= 0 ? ' hi' : '') + '"><span class="k">' + esc(r[0]) + '</span><span class="v' + (unset ? ' unset' : '') + '">' + esc(r[1]) + '</span></li>';
+  }).join('');
+}
+
+function formulaHTML(st) {
+  var t = st.t, c = st.c;
+  var left = '<div><p class="f-h">Why phase 2 works</p>' +
+    '<p class="f-m">μ = nodes before the cycle</p>' +
+    '<p class="f-m">λ = nodes in the cycle</p>' +
+    '<p class="f-m">k = steps slow walks inside the cycle</p>' +
+    '<p class="f-note">When they meet, slow has walked μ + k steps. fast has walked 2(μ + k) steps. fast is m whole laps ahead of slow.</p>' +
+    '<p class="f-m">2(μ + k) = (μ + k) + mλ</p>' +
+    '<p class="f-m">μ + k = mλ</p>' +
+    '<p class="f-m">μ = mλ − k</p>' +
+    '<p class="f-note">From the meeting node, μ more steps end at the cycle start, because m whole laps return to the same place and k steps are taken back. From the head, μ steps also end at the cycle start. So two pointers that move one node at a time meet there.</p></div>';
+  var right;
+  if (c === 0) {
+    right = '<div><p class="f-h">With this list</p><p class="f-note">This list has no cycle, so μ and λ do not exist. fast reaches NULL and hasCycle returns false. Choose a list with a cycle to see the numbers.</p></div>';
+  } else {
+    var s = meetSteps(t, c), k = s - t, m = s / c;
+    right = '<div><p class="f-h">With this list</p>' +
+      '<p class="f-m">μ = ' + t + ', λ = ' + c + '</p>' +
+      '<p class="f-m">slow and fast meet after s = ' + s + ' steps</p>' +
+      '<p class="f-m">k = s − μ = ' + s + ' − ' + t + ' = ' + k + '</p>' +
+      '<p class="f-m">m = s / λ = ' + s + ' / ' + c + ' = ' + m + '</p>' +
+      '<p class="f-m">μ = mλ − k = ' + m + '·' + c + ' − ' + k + ' = ' + (m * c - k) + '</p>' +
+      (st.result === 'start'
+        ? '<p class="f-ok">Phase 2 took μ = ' + t + ' steps. slow and fast met at node ' + st.start + ', the start of the cycle.</p>'
+        : '<p class="f-note">Phase 2 will take μ = ' + t + ' steps.</p>') +
+      '</div>';
+  }
+  return left + right;
+}
+//SIM-END
+
+var TRACE = {
+  code: [
+    '// Phase 1: is there a cycle?',
+    'public boolean hasCycle(ListNode head) {',
+    '    ListNode slow = head;',
+    '    ListNode fast = head;',
+    '',
+    '    while (fast != null && fast.next != null) {',
+    '        slow = slow.next;',
+    '        fast = fast.next.next;',
+    '        if (slow == fast) {',
+    '            return true;',
+    '        }',
+    '    }',
+    '',
+    '    return false;',
+    '}',
+    '',
+    '// Phase 2: find where the cycle starts.',
+    '// Assume slow and fast are at the meeting node.',
+    'slow = head;',
+    'while (slow != fast) {',
+    '    slow = slow.next;',
+    '    fast = fast.next;',
+    '}',
+    '',
+    'return slow; // the starting point of the cycle'
+  ],
+  hl: function (s) {
+    var ci = s.indexOf('//'), code = ci >= 0 ? s.slice(0, ci) : s, cm = ci >= 0 ? s.slice(ci) : '';
+    var h = esc(code)
+      .replace(/\b(hasCycle)\b/g, '<span class="fn">$1</span>')
+      .replace(/\b(public|boolean|return|while|if|true|false|null)\b/g, '<span class="kw">$1</span>')
+      .replace(/\b(ListNode)\b/g, '<span class="ty">$1</span>');
+    return h + (cm ? '<span class="cm">' + esc(cm) + '</span>' : '');
+  },
+  simulate: function () {
+    return simulate(+document.getElementById('selShape').value);
+  },
+  render: function (s) {
+    document.getElementById('stage').innerHTML = drawSVG(s);
+    document.getElementById('ptable').innerHTML = tableHTML(s);
+    document.getElementById('formula').innerHTML = formulaHTML(s);
+  }
+};
+
+</script>
+<script src="../../assets/player.js"></script>
+</body>
+</html>

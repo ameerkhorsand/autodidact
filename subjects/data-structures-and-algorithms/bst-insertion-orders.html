@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BST Insertion Orders</title>
+<link rel="stylesheet" href="../../assets/base.css">
+<link rel="stylesheet" href="../../assets/trace.css">
+<script src="../../assets/theme.js"></script>
+<style>
+/* Rules that are specific to this page. The shared rules are in trace.css. */
+.cn.L circle { fill: var(--le); }
+.cn.R circle { fill: var(--gt); }
+.cn.ghost { opacity: 0.7; }
+.nl { font: 500 12px var(--font-mono); fill: var(--muted); }
+.nl.t { fill: var(--done); font-weight: 700; }
+.qs .cap { font: 500 12px var(--font-mono); fill: var(--muted); }
+.legend .lgt { font: 500 12px var(--font-mono); color: var(--muted); }
+.ords { margin: 0 0 6px; }
+.ords .f-m { margin: 0 0 2px; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <a class="back" href="index.html">&larr; Data Structures and Algorithms</a>
+  <header>
+    <div class="intro">
+      <h1>Count the insertion orders that build a BST</h1>
+      <p>One binary search tree can come from many insertion orders. The root must be first. After it, the keys of the left subtree and the keys of the right subtree can mix in any way. So T(n) = T(n1) · T(n2) · (n1 + n2)! / (n1! · n2!). Choose a tree and watch the recursion count the orders.</p>
+    </div>
+    <div class="picks"><div class="pick"><label class="label" for="selInput">Tree</label><select id="selInput" class="param"><option value="0" selected>Small, 3 nodes</option><option value="1">Balanced, 7 nodes</option><option value="2">Mixed, 6 nodes</option><option value="3">Lopsided, 7 nodes</option><option value="4">Left chain, 5 nodes</option></select></div></div>
+  </header>
+
+  <section class="panel controls" aria-label="Playback controls">
+    <button type="button" class="btn" id="reset">Reset</button>
+    <button type="button" class="btn" id="prev">Back</button>
+    <button type="button" class="btn primary" id="play">Play</button>
+    <button type="button" class="btn" id="next">Next</button>
+    <input type="range" class="scrub" id="scrub" min="0" max="1" value="0" aria-label="Step">
+    <span class="stepno" id="stepno">Step 0 of 0</span>
+    <label class="spd"><span class="label">Speed</span>
+      <select id="speed">
+        <option value="2600">Slow</option>
+        <option value="1600" selected>Normal</option>
+        <option value="800">Fast</option>
+      </select>
+    </label>
+  </section>
+
+  <div class="layout">
+    <section class="panel p-code">
+      <h2>Code (Python)</h2>
+      <ol class="code" id="code" aria-label="Source code"></ol>
+    </section>
+
+    <section class="panel p-diagram">
+      <h2>Diagram</h2>
+      <div class="stage" id="stage"></div>
+      <div class="legend"><span><span class="sw cmp"></span>Node of this call</span><span><span class="sw le"></span>Left subtree is counted</span><span><span class="sw gt"></span>Right subtree is counted</span><span><svg viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-dasharray="3 3"/></svg>Call is open</span><span><svg viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>Node is done</span><span class="lgt">n = nodes, T = orders</span></div>
+    </section>
+
+    <section class="panel p-table">
+      <h2>Pointers</h2>
+      <ul class="ptable" id="ptable" aria-label="Pointer values"></ul>
+      <h2 class="sub">Call stack</h2>
+      <ul class="frames" id="frames" aria-label="Call stack, newest call first"></ul>
+    </section>
+
+    <section class="panel p-note">
+      <div class="note-box">
+        <div class="eyebrow"><span id="title">Start</span><span id="lineref"></span></div>
+        <p class="note" id="note" aria-live="polite"></p>
+      </div>
+    </section>
+
+    <section class="panel p-formula">
+      <h2>Formula</h2>
+      <div class="formula" id="formula"></div>
+    </section>
+  </div>
+</div>
+
+<script>
+//SIM-START
+function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+// A shape is N(left, right). A missing child is left out. The keys 1 to n are given in order (in-order), so each tree is a BST.
+function N(l, r) { return { l: l || null, r: r || null }; }
+var TREES = [
+  { name: 'Small, 3 nodes', shape: N(N(), N()) },
+  { name: 'Balanced, 7 nodes', shape: N(N(N(), N()), N(N(), N())) },
+  { name: 'Mixed, 6 nodes', shape: N(N(N(), N()), N(N(), null)) },
+  { name: 'Lopsided, 7 nodes', shape: N(N(N(N(), null), N()), N(N(), null)) },
+  { name: 'Left chain, 5 nodes', shape: N(N(N(N(N())))) }
+];
+function number(t, c) {
+  if (!t) return null;
+  var left = number(t.l, c), key = ++c.k, right = number(t.r, c);
+  return { key: key, left: left, right: right };
+}
+function serial(t) { return t ? '(' + t.key + serial(t.left) + serial(t.right) + ')' : '.'; }
+function fact(m) { var f = 1; for (var k = 2; k <= m; k++) f *= k; return f; }
+function plural(k, w) { return k + ' ' + w + (k === 1 ? '' : 's'); }
+
+// Try every order of the keys. Insert each order into an empty BST. Count the orders that give this tree.
+function bruteForce(root, n) {
+  var target = serial(root), count = 0, list = [], keys = [];
+  for (var k = 1; k <= n; k++) keys.push(k);
+  function insert(t, k) {
+    if (!t) return { key: k, left: null, right: null };
+    if (k < t.key) t.left = insert(t.left, k); else t.right = insert(t.right, k);
+    return t;
+  }
+  function go(prefix, rest) {
+    if (!rest.length) {
+      var t = null;
+      prefix.forEach(function (k) { t = insert(t, k); });
+      if (serial(t) === target) { count++; if (list.length < 6) list.push(prefix.join(' ')); }
+      return;
+    }
+    for (var i = 0; i < rest.length; i++) go(prefix.concat([rest[i]]), rest.slice(0, i).concat(rest.slice(i + 1)));
+  }
+  go([], keys);
+  return { tried: fact(n), count: count, list: list };
+}
+
+function simulate(pi) {
+  var root = number(TREES[pi].shape, { k: 0 }), n = 0;
+  var layout = {}, edges = [], sizeProduct = 1;
+  (function walk(t, d) {
+    if (!t) return 0;
+    var l = walk(t.left, d + 1);
+    layout[t.key] = { rank: t.key - 1, depth: d };
+    var r = walk(t.right, d + 1);
+    if (t.left) edges.push([t.key, t.left.key]);
+    if (t.right) edges.push([t.key, t.right.key]);
+    sizeProduct *= l + r + 1;
+    return l + r + 1;
+  })(root, 0);
+  n = Object.keys(layout).length;
+  var brute = bruteForce(root, n);
+  var stack = [], done = {}, started = {}, calls = 0, maxDepth = 0, steps = [];
+  function snap(o) {
+    var d = {}, s = {};
+    Object.keys(done).forEach(function (k) { d[k] = done[k]; });
+    Object.keys(started).forEach(function (k) { s[k] = true; });
+    steps.push({
+      lines: o.lines || [], title: o.title, note: o.note, n: n, rootKey: root.key,
+      stack: stack.map(function (f) { return { key: f.key, lk: f.lk, rk: f.rk, n1: f.n1, t1: f.t1, n2: f.n2, t2: f.t2, mix: f.mix, ways: f.ways }; }),
+      done: d, started: s, calls: calls, maxDepth: maxDepth, rows: o.rows || [], finished: !!o.finished,
+      layout: layout, edges: edges, brute: brute, sizeProduct: sizeProduct, answer: null
+    });
+  }
+
+  function rec(node) {
+    var f = { key: node.key, lk: node.left ? node.left.key : null, rk: node.right ? node.right.key : null, n1: null, t1: null, n2: null, t2: null, mix: null, ways: null };
+    calls++;
+    stack.push(f);
+    started[node.key] = true;
+    if (stack.length > maxDepth) maxDepth = stack.length;
+    snap({ lines: [9, 11], title: 'Call for node ' + node.key, rows: ['node'],
+      note: 'count_orders(node ' + node.key + ') starts. The node is not None, so the function goes on.' });
+
+    ['left', 'right'].forEach(function (side, si) {
+      var ch = node[side], ln = si === 0 ? 14 : 15, nm = si === 0 ? 'n1' : 'n2', tm = si === 0 ? 't1' : 't2';
+      var Side = side.charAt(0).toUpperCase() + side.slice(1);
+      if (!ch) {
+        f[nm] = 0; f[tm] = 1;
+        snap({ lines: [ln, 11, 12], title: Side + ' subtree is empty', rows: [nm, tm],
+          note: 'node.' + side + ' is None. count_orders(None) returns (0, 1). An empty subtree has 0 nodes and 1 way to build it: insert nothing. So ' + nm + ' = 0 and ' + tm + ' = 1.' });
+      } else {
+        snap({ lines: [ln], title: 'Call for the ' + side + ' subtree',
+          note: 'The function calls count_orders(node ' + ch.key + ') for the ' + side + ' subtree of node ' + node.key + '.' });
+        var res = rec(ch);
+        f[nm] = res[0]; f[tm] = res[1];
+        snap({ lines: [ln], title: Side + ' result', rows: [nm, tm],
+          note: 'The call returns (' + res[0] + ', ' + res[1] + '). The ' + side + ' subtree of node ' + node.key + ' has ' + plural(res[0], 'node') + ' and ' + plural(res[1], 'valid insertion order') +
+            '. So ' + nm + ' = ' + res[0] + ' and ' + tm + ' = ' + res[1] + '.' });
+      }
+    });
+
+    var a = f.n1, b = f.n2, m = a + b;
+    f.mix = fact(m) / (fact(a) * fact(b));
+    var mixText = m === 0
+      ? 'A leaf has no other keys. mix = 0! / (0! · 0!) = 1 / 1 = 1. Remember that 0! is 1.'
+      : 'The root goes first. The ' + a + ' left keys and the ' + b + ' right keys share the other ' + m + ' places. Each subtree keeps one of its own valid orders. Only the mix of the two orders is free. mix = (' + a + ' + ' + b + ')! / (' + a + '! · ' + b + '!) = ' +
+        fact(m) + ' / (' + fact(a) + ' · ' + fact(b) + ') = ' + f.mix + '.';
+    snap({ lines: [17, 18], title: 'Mix the two subtrees', rows: ['mix'], note: mixText });
+
+    f.ways = f.t1 * f.t2 * f.mix;
+    snap({ lines: [19], title: 'Multiply', rows: ['ways'],
+      note: 'ways = t1 · t2 · mix = ' + f.t1 + ' · ' + f.t2 + ' · ' + f.mix + ' = ' + f.ways + '. Choose an order for the left subtree (' + plural(f.t1, 'way') + '), an order for the right subtree (' + plural(f.t2, 'way') + '), and a mix (' + plural(f.mix, 'way') + '). Each choice gives a different insertion order.' });
+
+    var size = a + b + 1;
+    done[node.key] = [size, f.ways];
+    snap({ lines: [20], title: 'Return', rows: ['node'],
+      note: 'return (' + size + ', ' + f.ways + '). Node ' + node.key + ' is done. ' + (size === 1 ? 'It is a leaf.' : 'Its subtree has ' + plural(size, 'node') + '.') + ' There are ' + plural(f.ways, 'insertion order') + ' that build this subtree.' });
+    stack.pop();
+    return [size, f.ways];
+  }
+
+  snap({ title: 'Start', note: 'The tree has ' + plural(n, 'node') + ', with the keys 1 to ' + n + '. The root is ' + root.key + '. count_orders(root) counts the insertion orders that build exactly this tree. The orders are lists of the keys.' });
+  var res = rec(root);
+  snap({ lines: [20], title: 'Done', finished: true,
+    note: 'The first call returns (' + res[0] + ', ' + res[1] + '). So ' + plural(res[1], 'insertion order') + (res[1] === 1 ? ' builds' : ' build') + ' this tree. The keys have ' + fact(n) + ' orders in all. Only ' + res[1] + ' of them give this tree.' });
+  steps.forEach(function (s) { s.answer = res[1]; });
+  return steps;
+}
+
+var SP = 66, Y0 = 34, DY = 84, NR = 18, CW = 44, CP = 50;
+function r1(v) { return Math.round(v * 10) / 10; }
+
+function drawSVG(st) {
+  var n = st.n, maxD = 0, k, VW = Math.max(440, (n - 1) * SP + 110);
+  Object.keys(st.layout).forEach(function (key) { if (st.layout[key].depth > maxD) maxD = st.layout[key].depth; });
+  var treeBottom = Y0 + maxD * DY + 50, H = treeBottom + 134;
+  var top = st.stack.length ? st.stack[st.stack.length - 1] : null;
+  var label = 'A binary search tree with ' + n + ' nodes. ' + Object.keys(st.done).length + ' nodes are done.';
+  var out = '<svg class="qs" viewBox="0 0 ' + VW + ' ' + H + '" width="' + VW + '" style="width:100%;max-width:' + VW + 'px;min-width:' + Math.min(VW, 440) + 'px" role="img" aria-label="' + esc(label) + '">';
+  var TX0 = (VW - (n - 1) * SP) / 2;
+  function px(key) { return TX0 + st.layout[key].rank * SP; }
+  function py(key) { return Y0 + st.layout[key].depth * DY; }
+
+  st.edges.forEach(function (e) {
+    var x1 = px(e[0]), y1 = py(e[0]), x2 = px(e[1]), y2 = py(e[1]);
+    var dx = x2 - x1, dy = y2 - y1, len = Math.sqrt(dx * dx + dy * dy), ux = dx / len, uy = dy / len;
+    out += '<g class="lnk' + (st.started[e[1]] ? '' : ' stale') + '"><path class="main" d="M' + r1(x1 + ux * NR) + ',' + r1(y1 + uy * NR) + ' L' + r1(x2 - ux * NR) + ',' + r1(y2 - uy * NR) + '"/></g>';
+  });
+  Object.keys(st.layout).forEach(function (key) {
+    key = +key;
+    var isDone = !!st.done[key];
+    var cls = 'cn' + (isDone ? '' : st.started[key] ? ' wip' : ' ghost');
+    if (top && top.key === key) cls += ' cur';
+    if (top && key === top.lk && top.n1 !== null) cls += ' L';
+    if (top && key === top.rk && top.n2 !== null) cls += ' R';
+    out += '<g class="' + cls + '"><circle cx="' + r1(px(key)) + '" cy="' + r1(py(key)) + '" r="' + NR + '"/><text x="' + r1(px(key)) + '" y="' + r1(py(key) + 5.5) + '" text-anchor="middle">' + key + '</text></g>';
+    if (isDone) {
+      out += '<text class="nl" x="' + r1(px(key)) + '" y="' + r1(py(key) + NR + 14) + '" text-anchor="middle">n=' + st.done[key][0] + '</text>' +
+        '<text class="nl t" x="' + r1(px(key)) + '" y="' + r1(py(key) + NR + 27) + '" text-anchor="middle">T=' + st.done[key][1] + '</text>';
+    }
+  });
+
+  // The places after the root: one example of how the left keys and the right keys can mix.
+  var sy = treeBottom + 16;
+  if (top && top.n2 !== null) {
+    var a = top.n1, b = top.n2, m = a + b, total = m + 1;
+    out += '<text class="cap" x="10" y="' + sy + '">Subtree of node ' + top.key + ': the root is first, then ' + plural(m, 'place') + '.</text>';
+    if (top.mix !== null) out += '<text class="cap" x="10" y="' + (sy + 16) + '">' + (m === 0 ? 'No other keys: 1 way.' : 'Left keys take ' + a + ' of ' + m + ' places: ' + plural(top.mix, 'way') + '.') + '</text>';
+    var x0 = (VW - (total * CP - (CP - CW))) / 2;
+    for (k = 0; k < total; k++) {
+      var cx = x0 + k * CP, c = k === 0 ? 'cell rt' : (k <= a ? 'cell L' : 'cell R'), t = k === 0 ? top.key : (k <= a ? 'L' : 'R');
+      out += '<g class="' + c + '"><rect x="' + r1(cx) + '" y="' + (sy + 28) + '" width="' + CW + '" height="36" rx="4"/><text x="' + r1(cx + CW / 2) + '" y="' + (sy + 52) + '" text-anchor="middle">' + t + '</text></g>' +
+        '<text class="idx" x="' + r1(cx + CW / 2) + '" y="' + (sy + 80) + '" text-anchor="middle">' + (k + 1) + '</text>';
+    }
+  }
+  return out + '</svg>';
+}
+
+function tableHTML(st) {
+  var f = st.stack.length ? st.stack[st.stack.length - 1] : null;
+  function nv(v) { return (v === null || v === undefined) ? 'not set' : String(v); }
+  var rows = [
+    ['node', f ? String(f.key) : 'not set'], ['n1', f ? nv(f.n1) : 'not set'], ['t1', f ? nv(f.t1) : 'not set'],
+    ['n2', f ? nv(f.n2) : 'not set'], ['t2', f ? nv(f.t2) : 'not set'], ['mix', f ? nv(f.mix) : 'not set'],
+    ['ways', f ? nv(f.ways) : 'not set'], ['calls to count_orders', String(st.calls)]
+  ];
+  return rows.map(function (r) {
+    var unset = r[1] === 'not set';
+    return '<li class="pt' + (st.rows.indexOf(r[0]) >= 0 ? ' hi' : '') + '"><span class="k">' + esc(r[0]) + '</span><span class="v' + (unset ? ' unset' : '') + '">' + esc(r[1]) + '</span></li>';
+  }).join('');
+}
+
+function framesHTML(st) {
+  if (!st.stack.length) return '<li class="empty">Empty. ' + (st.finished ? 'All calls have returned.' : 'The first call has not started.') + '</li>';
+  return st.stack.slice().reverse().map(function (f, idx) {
+    var depth = st.stack.length - idx, parts = [];
+    parts.push(f.n1 === null ? 'left not counted' : 'n1 ' + f.n1 + ', t1 ' + f.t1);
+    parts.push(f.n2 === null ? 'right not counted' : 'n2 ' + f.n2 + ', t2 ' + f.t2);
+    if (f.ways !== null) parts.push('ways ' + f.ways);
+    return '<li class="frame' + (idx === 0 ? ' top' : '') + '"><div class="fh"><span>count_orders(node ' + f.key + ')</span><span>depth ' + depth + '</span></div>' +
+      '<div class="fv">' + parts.join(', ') + '</div></li>';
+  }).join('');
+}
+
+function formulaHTML(st) {
+  var n = st.n, b = st.brute, ok = st.finished && b.count === st.answer;
+  var left = '<div><p class="f-h">The formula</p>' +
+    '<p class="f-m">T(n) = T(n1) · T(n2) · (n1 + n2)! / (n1! · n2!)</p>' +
+    '<p class="f-m">n = n1 + n2 + 1, T(0) = T(1) = 1</p>' +
+    '<p class="f-note">n1 and n2 are the sizes of the left subtree and the right subtree. T(n) is the number of insertion orders that build the tree.</p>' +
+    '<p class="f-h">Why it works</p>' +
+    '<p class="f-note"><b>1. The root is first.</b> The first key you insert becomes the root. So the root of the tree must be first in every valid order.</p>' +
+    '<p class="f-note"><b>2. The subtrees do not touch.</b> A key smaller than the root goes left. A larger key goes right. So each subtree needs its own valid order. The keys of the other subtree do not change it.</p>' +
+    '<p class="f-note"><b>3. The orders mix.</b> The n1 left keys and the n2 right keys share n1 + n2 places. Choose n1 places for the left keys. The right keys take the others. This gives (n1 + n2)! / (n1! · n2!) ways. It is also written C(n1 + n2, n1).</p>' +
+    '<p class="f-note"><b>4. Multiply.</b> For each mix, the left keys use one of T(n1) valid orders, and the right keys use one of T(n2). So the three numbers multiply.</p>' +
+    '<p class="f-h">Example</p>' +
+    '<p class="f-m">T = 1 · 1 · 2! / (1! · 1!) = 2</p>' +
+    '<p class="f-note">The tree with root 2, left child 1, and right child 3 has n1 = 1 and n2 = 1. The two valid orders are 2 1 3 and 2 3 1.</p>' +
+    '<p class="f-h">Another way</p>' +
+    '<p class="f-m">T(n) = n! / (product of the subtree sizes)</p>' +
+    '<p class="f-note">Each node must come before all the nodes in its subtree. Of all the orders of those keys, 1 in size(v) starts with v. The fractions multiply. The result is the same number.</p>' +
+    '<p class="f-h">Cost</p>' +
+    '<p class="f-note">The function visits each node one time. Make a table of factorials one time, and each visit takes O(1) arithmetic steps. The total is O(n), not counting the size of the big numbers. The stack takes O(h) space. Here h is the height of the tree.</p></div>';
+
+  var rows = '<tr><th>Item</th><th>Value</th></tr>' +
+    '<tr><td style="text-align:left">Nodes n</td><td>' + n + '</td></tr>' +
+    '<tr><td style="text-align:left">All orders of the keys: n!</td><td>' + b.tried + '</td></tr>' +
+    '<tr><td style="text-align:left">Check: n! / (product of subtree sizes)</td><td>' + (b.tried / st.sizeProduct) + '</td></tr>' +
+    '<tr><td style="text-align:left">Check: brute force (insert all ' + b.tried + ' orders)</td><td>' + b.count + '</td></tr>' +
+    '<tr><td class="last" style="text-align:left">So far: calls to count_orders</td><td class="last">' + st.calls + '</td></tr>' +
+    '<tr><td class="last" style="text-align:left">So far: nodes done</td><td class="last">' + Object.keys(st.done).length + '</td></tr>' +
+    '<tr><td class="last" style="text-align:left">So far: deepest call stack</td><td class="last">' + st.maxDepth + '</td></tr>' +
+    '<tr><td class="last" style="text-align:left">Answer T(n)</td><td class="last">' + (st.finished ? st.answer : 'not known yet') + '</td></tr>';
+  var list = b.list.map(function (s) { return '<p class="f-m">' + s + '</p>'; }).join('') + (b.count > b.list.length ? '<p class="f-note">… and ' + (b.count - b.list.length) + ' more.</p>' : '');
+  var right = '<div><p class="f-h">With this input</p><div class="tblwrap"><table class="jt">' + rows + '</table></div>' +
+    (ok ? '<p class="f-ok">The recursion gives ' + st.answer + '. The brute force finds ' + b.count + '. They match.</p>'
+        : '<p class="f-note">The brute force inserts every order of the keys into an empty BST. It counts the orders that give this exact tree. The recursion must give the same number.</p>') +
+    '<p class="f-h">The first valid orders</p><div class="ords">' + list + '</div></div>';
+  return left + right;
+}
+//SIM-END
+
+var TRACE = {
+  code: [
+    'from math import factorial',
+    '',
+    'class Node:',
+    '    def __init__(self, key):',
+    '        self.key = key',
+    '        self.left = None',
+    '        self.right = None',
+    '',
+    'def count_orders(node):',
+    '    # Returns (size, ways): the nodes in the subtree, and the insertion orders that build it',
+    '    if node is None:',
+    '        return 0, 1',
+    '',
+    '    n1, t1 = count_orders(node.left)',
+    '    n2, t2 = count_orders(node.right)',
+    '',
+    '    # The root is first. The other keys of the two subtrees mix in any way.',
+    '    mix = factorial(n1 + n2) // (factorial(n1) * factorial(n2))',
+    '    ways = t1 * t2 * mix',
+    '    return n1 + n2 + 1, ways'
+  ],
+  hl: function (s) {
+    var ci = s.indexOf('#'), code = ci >= 0 ? s.slice(0, ci) : s, cm = ci >= 0 ? s.slice(ci) : '';
+    var h = esc(code)
+      .replace(/\b(class|def|return|if|is|from|import|None)\b/g, '<span class="kw">$1</span>')
+      .replace(/\b(count_orders|Node|factorial)\b/g, '<span class="fn">$1</span>')
+      .replace(/\b(self)\b/g, '<span class="ty">$1</span>');
+    return h + (cm ? '<span class="cm">' + esc(cm) + '</span>' : '');
+  },
+  simulate: function () {
+    return simulate(+document.getElementById('selInput').value);
+  },
+  render: function (s) {
+    document.getElementById('stage').innerHTML = drawSVG(s);
+    document.getElementById('ptable').innerHTML = tableHTML(s);
+    document.getElementById('frames').innerHTML = framesHTML(s);
+    document.getElementById('formula').innerHTML = formulaHTML(s);
+  }
+};
+
+</script>
+<script src="../../assets/player.js"></script>
+</body>
+</html>

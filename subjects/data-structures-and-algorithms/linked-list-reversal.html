@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Linked List Reversal Trace</title>
+<link rel="stylesheet" href="../../assets/base.css">
+<link rel="stylesheet" href="../../assets/trace.css">
+<script src="../../assets/theme.js"></script>
+<style>
+/* Rules that are specific to this page. The shared rules are in trace.css. */
+.pick label, .label { font: 500 11px/1 var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.seg button { padding: 1px 6px; }
+.layout { grid-template-areas: "code diagram" "stack note"; }
+.p-stack { grid-area: stack; }
+.p-diagram { display: block; }
+.p-diagram .stage { display: block; flex: none; }
+.p-diagram .stage svg { margin: 0 auto; }
+.code { font-size: 13.5px; }
+.frame .fv { display: flex; flex-wrap: wrap; gap: 4px 20px; }
+.frame .fv b { color: var(--ink); font-weight: 500; }
+.empty { padding: 14px; }
+.node text { font: 700 20px var(--font-mono); fill: var(--ink); }
+.tag.pcur rect { fill: var(--accent); stroke: var(--accent); }
+.tag.pcur text { fill: var(--on-accent); }
+.tag.p rect { fill: var(--paper); stroke: var(--muted); }
+.tag.p text { fill: var(--muted); }
+.tag.h rect { fill: var(--ink); stroke: var(--ink); }
+.tag.h text { fill: var(--paper); }
+.tag.ret rect { fill: var(--done); stroke: var(--done); }
+.tag.ret text { fill: var(--on-done); }
+.tp { color: var(--muted); }
+.tp.pcur { color: var(--accent); }
+.tp.h { color: var(--ink); }
+.tp.ret { color: var(--done); }
+.back { margin-bottom: 0; }
+@media (max-width: 860px) { .layout { grid-template-areas: "note" "diagram" "code" "stack"; } }
+</style>
+</head><body>
+
+
+<div class="wrap">
+  <a class="back" href="index.html">← Data Structures and Algorithms</a>
+  <header>
+    <div class="intro">
+      <h1>Reversing a singly linked list</h1>
+      <p>The function <code>listravel</code> calls itself to reach the last node. Then it turns each link around as the calls return. Step through each statement and watch the links, the pointers, and the call stack.</p>
+    </div>
+    <div class="pick">
+      <span class="label" id="lenlabel">Nodes in list</span>
+      <div class="seg" role="group" aria-labelledby="lenlabel" id="seg">
+        <button type="button" data-n="2" aria-pressed="false">2</button>
+        <button type="button" data-n="3" aria-pressed="false">3</button>
+        <button type="button" data-n="4" aria-pressed="true">4</button>
+        <button type="button" data-n="5" aria-pressed="false">5</button>
+      </div>
+    </div>
+  </header>
+
+  <section class="panel controls" aria-label="Playback controls">
+    <button type="button" class="btn" id="reset">Reset</button>
+    <button type="button" class="btn" id="prev">Back</button>
+    <button type="button" class="btn primary" id="play">Play</button>
+    <button type="button" class="btn" id="next">Next</button>
+    <input type="range" class="scrub" id="scrub" min="0" max="1" value="0" aria-label="Step">
+    <span class="stepno" id="stepno">Step 0 of 0</span>
+    <label class="spd"><span class="label">Speed</span>
+      <select id="speed">
+        <option value="2600">Slow</option>
+        <option value="1600" selected>Normal</option>
+        <option value="800">Fast</option>
+      </select>
+    </label>
+  </section>
+
+  <div class="layout">
+    <section class="panel p-code">
+      <h2>Code</h2>
+      <ol class="code" id="code" aria-label="Source code"></ol>
+    </section>
+
+    <section class="panel p-diagram">
+      <h2>List in memory</h2>
+      <div class="stage" id="stage"></div>
+      <div class="legend">
+        <span><i></i>Original link</span>
+        <span><i class="rev"></i>Reversed link</span>
+        <span><i class="chg"></i>Link changed in this step</span>
+        <span><svg viewBox="0 0 20 16" aria-hidden="true"><path d="M10 0 V6 M1 6 H19 M4.5 10.5 H15.5 M8 15 H12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>NULL</span>
+      </div>
+    </section>
+
+    <section class="panel p-stack">
+      <h2>Call stack</h2>
+      <ul class="frames" id="frames" aria-label="Call stack, newest call first"></ul>
+    </section>
+
+    <section class="panel p-note">
+      <div class="note-box">
+        <div class="eyebrow"><span id="title">Start</span><span id="lineref"></span></div>
+        <p class="note" id="note" aria-live="polite"></p>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+//SIM-START
+function simulate(n) {
+  var links = {};
+  for (var k = 1; k <= n; k++) links[k] = k < n ? k + 1 : null;
+  var steps = [], stack = [], calls = 0;
+  var seq = [];
+  for (var q = 1; q <= n; q++) seq.push(q);
+  function chain(a) { return a.join(' → '); }
+  function snap(o) {
+    steps.push({
+      line: o.line, title: o.title, note: o.note,
+      ret: o.ret || null, retLabel: o.retLabel || 'return',
+      changed: o.changed || null,
+      links: Object.assign({}, links),
+      stack: stack.map(function (f) { return { id: f.id, p: f.p, h: f.h }; })
+    });
+  }
+  snap({ line: 0, title: 'Start', note: 'The list is ' + chain(seq) + ' → NULL. The head is node 1. The first call is listravel(1). Press Next or Play.' });
+  function rec(p) {
+    var f = { id: ++calls, p: p, h: null };
+    stack.push(f);
+    snap({ line: 1, title: 'Call #' + f.id, note: 'listravel starts. In this call, p points to node ' + p + '.' });
+    var nxt = links[p];
+    if (nxt === null) {
+      snap({ line: 3, title: 'Test', note: 'p is not NULL. But p->link is NULL, so the test is true.' });
+      snap({ line: 4, title: 'Base case', ret: p, note: 'return p. Node ' + p + ' is the last node. The call ends and gives node ' + p + ' to its caller. This node will be the new head.' });
+      stack.pop();
+      return p;
+    }
+    snap({ line: 3, title: 'Test', note: 'p is not NULL. p->link is node ' + nxt + ', not NULL. The test is false, so the function goes on.' });
+    snap({ line: 5, title: 'Recursive call', note: 'Call listravel(p->link). Here p->link is node ' + nxt + '. This call waits for the result.' });
+    var h = rec(nxt);
+    f.h = h;
+    snap({ line: 5, title: 'Call returns', note: 'The call gives back node ' + h + '. Now h points to node ' + h + '.' });
+    links[nxt] = p;
+    snap({ line: 6, title: 'Turn the link', changed: { from: nxt }, note: 'p->link is node ' + nxt + '. Its link now points back to node ' + p + '. The arrow turns around.' });
+    links[p] = null;
+    snap({ line: 7, title: 'Cut the old link', changed: { from: p }, note: 'p->link = NULL. Node ' + p + ' no longer points to node ' + nxt + '. It points to NULL for now. The caller will change this link.' });
+    snap({ line: 8, title: 'Return h', ret: h, note: 'return h. h still points to node ' + h + ', the new head. The call ends.' });
+    stack.pop();
+    return h;
+  }
+  var head = rec(1);
+  snap({ line: 0, title: 'Done', ret: head, retLabel: 'new head', note: 'All calls have returned. The list is now ' + chain(seq.slice().reverse()) + ' → NULL. The new head is node ' + head + '.' });
+  return steps;
+}
+//SIM-END
+
+(function () {
+  var CODE = [
+    'list *listravel(list *p) {',
+    '    list *h;',
+    '    if (p == NULL || p->link == NULL)',
+    '        return p;',
+    '    h = listravel(p->link);',
+    '    p->link->link = p;',
+    '    p->link = NULL;',
+    '    return h;',
+    '}'
+  ];
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function hl(s) {
+    return esc(s)
+      .replace(/\blistravel\b/g, '<span class="fn">listravel</span>')
+      .replace(/\b(if|return)\b/g, '<span class="kw">$1</span>')
+      .replace(/\b(list|NULL)\b/g, '<span class="ty">$1</span>');
+  }
+  var n = 4;
+
+  function drawSVG(s) {
+    var NW = 76, NH = 52, GAP = 52, X0 = 24, Y0 = 108;
+    var W = X0 * 2 + n * NW + (n - 1) * GAP, H = Y0 + NH + 64;
+    var cy = Y0 + 26;
+    function nx(id) { return X0 + (id - 1) * (NW + GAP); }
+    var tags = {};
+    function add(id, t) { (tags[id] = tags[id] || []).push(t); }
+    s.stack.forEach(function (f, idx) {
+      add(f.p, { k: idx === s.stack.length - 1 ? 'pcur' : 'p', t: 'p (#' + f.id + ')' });
+    });
+    s.stack.forEach(function (f) { if (f.h) add(f.h, { k: 'h', t: 'h (#' + f.id + ')' }); });
+    if (s.ret) add(s.ret, { k: 'ret', t: s.retLabel });
+
+    var desc = [];
+    for (var a = 1; a <= n; a++) desc.push('node ' + a + ' links to ' + (s.links[a] === null ? 'NULL' : 'node ' + s.links[a]));
+    var out = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" style="width:100%;max-width:' + Math.round(W * 1.4) + 'px;min-width:' + Math.min(W, 480) + 'px" role="img" aria-label="' + esc(desc.join('; ')) + '">';
+
+    for (a = 1; a <= n; a++) {
+      var x = nx(a);
+      var cur = s.stack.length && s.stack[s.stack.length - 1].p === a;
+      out += '<g class="node' + (cur ? ' cur' : '') + '"><rect x="' + x + '" y="' + Y0 + '" width="' + NW + '" height="' + NH + '" rx="6"/>' +
+        '<line x1="' + (x + 48) + '" y1="' + Y0 + '" x2="' + (x + 48) + '" y2="' + (Y0 + NH) + '"/>' +
+        '<text x="' + (x + 24) + '" y="' + (Y0 + 33) + '" text-anchor="middle">' + a + '</text>' +
+        '<circle cx="' + (x + 62) + '" cy="' + cy + '" r="4"/></g>';
+    }
+
+    for (a = 1; a <= n; a++) {
+      var t = s.links[a], xa = nx(a);
+      var chg = s.changed && s.changed.from === a ? ' chg' : '';
+      if (t === null) {
+        var g = xa + 62, b = Y0 + NH + 14;
+        out += '<g class="lnk nul' + chg + '"><path class="main" pathLength="1" d="M' + g + ',' + cy + ' L' + g + ',' + b + '"/>' +
+          '<path class="bars" d="M' + (g - 10) + ',' + b + ' H' + (g + 10) + ' M' + (g - 6.5) + ',' + (b + 5) + ' H' + (g + 6.5) + ' M' + (g - 3) + ',' + (b + 10) + ' H' + (g + 3) + '"/></g>';
+      } else if (t > a) {
+        var tx = nx(t);
+        out += '<g class="lnk fwd' + chg + '"><path class="main" pathLength="1" d="M' + (xa + 62) + ',' + cy + ' L' + (tx - 7) + ',' + cy + '"/>' +
+          '<path class="hd" d="M' + (tx - 9) + ',' + (cy - 5.5) + ' L' + tx + ',' + cy + ' L' + (tx - 9) + ',' + (cy + 5.5) + ' Z"/></g>';
+      } else {
+        var bx = nx(t) + 30, by = Y0 + NH;
+        out += '<g class="lnk bwd' + chg + '"><path class="main" pathLength="1" d="M' + (xa + 62) + ',' + cy + ' C' + (xa + 62) + ',' + (by + 48) + ' ' + bx + ',' + (by + 48) + ' ' + bx + ',' + (by + 8) + '"/>' +
+          '<path class="hd" d="M' + (bx - 5.5) + ',' + (by + 9) + ' L' + bx + ',' + by + ' L' + (bx + 5.5) + ',' + (by + 9) + ' Z"/></g>';
+      }
+    }
+
+    Object.keys(tags).forEach(function (id) {
+      var cx = nx(+id) + NW / 2, list = tags[id];
+      list.forEach(function (tg, k) {
+        var w = Math.round(tg.t.length * 7.4 + 18), h = 20, y = Y0 - 16 - h - k * 24;
+        out += '<g class="tag ' + tg.k + '"><rect x="' + (cx - w / 2) + '" y="' + y + '" width="' + w + '" height="' + h + '" rx="4"/>' +
+          '<text x="' + cx + '" y="' + (y + 14) + '" text-anchor="middle">' + esc(tg.t) + '</text></g>';
+      });
+      out += '<g class="tp ' + list[0].k + '"><path d="M' + cx + ',' + (Y0 - 16) + ' L' + cx + ',' + (Y0 - 8) + '"/>' +
+        '<path class="hd" d="M' + (cx - 4.5) + ',' + (Y0 - 9) + ' L' + cx + ',' + (Y0 - 2) + ' L' + (cx + 4.5) + ',' + (Y0 - 9) + ' Z"/></g>';
+    });
+    return out + '</svg>';
+  }
+
+  function renderStack(s, i) {
+    var el = $('frames');
+    if (!s.stack.length) {
+      el.innerHTML = '<li class="empty">' + (i === 0 ? 'Empty. The first call has not started.' : 'Empty. All calls have returned.') + '</li>';
+      return;
+    }
+    el.innerHTML = s.stack.slice().reverse().map(function (f, idx) {
+      return '<li class="frame' + (idx === 0 ? ' top' : '') + '"><div class="fh"><span>call #' + f.id + '</span><span>listravel(' + f.p + ')</span></div>' +
+        '<div class="fv"><span>p → <b>node ' + f.p + '</b></span><span>h → <b>' + (f.h ? 'node ' + f.h : 'not set') + '</b></span></div></li>';
+    }).join('');
+  }
+
+  window.TRACE = {
+    code: CODE,
+    hl: hl,
+    simulate: function () {
+      return simulate(n).map(function (s) { s.lines = s.line ? [s.line] : []; return s; });
+    },
+    render: function (s, i) {
+      $('stage').innerHTML = drawSVG(s);
+      renderStack(s, i);
+    },
+    bind: function (rebuild) {
+      $('seg').addEventListener('click', function (e) {
+        var b = e.target.closest('button');
+        if (!b) return;
+        n = +b.getAttribute('data-n');
+        var all = $('seg').querySelectorAll('button');
+        for (var k = 0; k < all.length; k++) all[k].setAttribute('aria-pressed', all[k] === b ? 'true' : 'false');
+        rebuild();
+      });
+    }
+  };
+})();
+</script>
+<script src="../../assets/player.js"></script>
+</body></html>

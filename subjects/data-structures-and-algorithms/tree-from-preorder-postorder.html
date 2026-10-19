@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tree From Preorder and Postorder</title>
+<link rel="stylesheet" href="../../assets/base.css">
+<link rel="stylesheet" href="../../assets/trace.css">
+<script src="../../assets/theme.js"></script>
+</head>
+<body>
+
+<div class="wrap">
+  <a class="back" href="index.html">&larr; Data Structures and Algorithms</a>
+  <header>
+    <div class="intro">
+      <h1>Build a full binary tree from preorder and postorder</h1>
+      <p>The first value of a preorder range is the root. The next value is the root of the left subtree. Its index in postorder shows where the left subtree ends. The function rec uses this to split the ranges and build the tree. Choose a tree and watch the ranges split.</p>
+    </div>
+    <div class="picks"><div class="pick"><label class="label" for="selInput">Tree</label><select id="selInput" class="param"><option value="0" selected>Balanced, 7 nodes</option><option value="1">Left-leaning, 7 nodes</option><option value="2">Right-leaning, 7 nodes</option><option value="3">Mixed, 9 nodes</option><option value="4">Small, 3 nodes</option><option value="5">Not full: single children</option></select></div></div>
+  </header>
+
+  <section class="panel controls" aria-label="Playback controls">
+    <button type="button" class="btn" id="reset">Reset</button>
+    <button type="button" class="btn" id="prev">Back</button>
+    <button type="button" class="btn primary" id="play">Play</button>
+    <button type="button" class="btn" id="next">Next</button>
+    <input type="range" class="scrub" id="scrub" min="0" max="1" value="0" aria-label="Step">
+    <span class="stepno" id="stepno">Step 0 of 0</span>
+    <label class="spd"><span class="label">Speed</span>
+      <select id="speed">
+        <option value="2600">Slow</option>
+        <option value="1600" selected>Normal</option>
+        <option value="800">Fast</option>
+      </select>
+    </label>
+  </section>
+
+  <div class="layout">
+    <section class="panel p-code">
+      <h2>Code (Python)</h2>
+      <ol class="code" id="code" aria-label="Source code"></ol>
+    </section>
+
+    <section class="panel p-diagram">
+      <h2>Diagram</h2>
+      <div class="stage" id="stage"></div>
+      <div class="legend"><span><span class="sw piv"></span>Root of this call</span><span><span class="sw le"></span>Left subtree range</span><span><span class="sw gt"></span>Right subtree range</span><span><span class="sw cmp"></span>left_root, and its index i</span><span><svg viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-dasharray="3 3"/></svg>Node made, subtree not finished</span><span><svg viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>Node finished</span></div>
+    </section>
+
+    <section class="panel p-table">
+      <h2>Pointers</h2>
+      <ul class="ptable" id="ptable" aria-label="Pointer values"></ul>
+      <h2 class="sub">Call stack</h2>
+      <ul class="frames" id="frames" aria-label="Call stack, newest call first"></ul>
+    </section>
+
+    <section class="panel p-note">
+      <div class="note-box">
+        <div class="eyebrow"><span id="title">Start</span><span id="lineref"></span></div>
+        <p class="note" id="note" aria-live="polite"></p>
+      </div>
+    </section>
+
+    <section class="panel p-formula">
+      <h2>Formula</h2>
+      <div class="formula" id="formula"></div>
+    </section>
+  </div>
+</div>
+
+<script>
+//SIM-START
+function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+// A tree is [value, left, right]. A missing child is left out.
+var TREES = [
+  { name: 'Balanced, 7 nodes', t: ['A', ['B', ['D'], ['E']], ['C', ['F'], ['G']]] },
+  { name: 'Left-leaning, 7 nodes', t: ['A', ['B', ['C', ['D'], ['E']], ['F']], ['G']] },
+  { name: 'Right-leaning, 7 nodes', t: ['A', ['B'], ['C', ['D'], ['E', ['F'], ['G']]]] },
+  { name: 'Mixed, 9 nodes', t: ['A', ['B', ['D'], ['E', ['H'], ['I']]], ['C', ['F'], ['G']]] },
+  { name: 'Small, 3 nodes', t: ['A', ['B'], ['C']] },
+  { name: 'Not full: single children', t: ['A', ['B', ['C']]] }
+];
+function preo(t) { return t ? [t[0]].concat(preo(t[1]), preo(t[2])) : []; }
+function posto(t) { return t ? posto(t[1]).concat(posto(t[2]), [t[0]]) : []; }
+function serial(t) { return t ? '(' + t[0] + serial(t[1]) + serial(t[2]) + ')' : '.'; }
+function serialNode(t) { return t ? '(' + t.val + serialNode(t.left) + serialNode(t.right) + ')' : '.'; }
+function catalan(m) {
+  var c = 1;
+  for (var k = 0; k < m; k++) c = c * 2 * (2 * k + 1) / (k + 2);
+  return Math.round(c);
+}
+
+function simulate(pi) {
+  var spec = TREES[pi].t, preA = preo(spec), postA = posto(spec), n = preA.length;
+  var posIdx = {};
+  postA.forEach(function (v, i) { posIdx[v] = i; });
+  var stack = [], created = [], finished = [], edges = [], sizes = [], calls = 0, maxDepth = 0, steps = [];
+  function snap(o) {
+    steps.push({
+      lines: o.lines || [], title: o.title, note: o.note, n: n, pre: preA, post: postA,
+      stack: stack.map(function (f) { return { id: f.id, preLo: f.preLo, preHi: f.preHi, postLo: f.postLo, postHi: f.postHi, root: f.root, leftRoot: f.leftRoot, i: f.i, size: f.size }; }),
+      created: created.slice(), finished: finished.slice(),
+      edges: edges.map(function (e) { return e.slice(); }), sizes: sizes.map(function (s) { return s.slice(); }),
+      newNode: o.newNode || null, newEdge: o.newEdge || null,
+      calls: calls, maxDepth: maxDepth, rows: o.rows || [], done: !!o.done,
+      layout: null, shape: null, totalCalls: 0, built: null
+    });
+  }
+  function plural(k, w) { return k + ' ' + w + (k === 1 ? '' : 's'); }
+
+  function rec(a, b, c, d) {
+    var f = { id: ++calls, preLo: a, preHi: b, postLo: c, postHi: d, root: null, leftRoot: null, i: null, size: null };
+    stack.push(f);
+    if (stack.length > maxDepth) maxDepth = stack.length;
+    snap({ lines: [11], title: 'Call ' + f.id, rows: ['pre_lo', 'pre_hi', 'post_lo', 'post_hi'],
+      note: 'rec(' + a + ', ' + b + ', ' + c + ', ' + d + ') starts. The preorder range is ' + (a > b ? 'empty' : 'position ' + a + ' to position ' + b) +
+        '. The postorder range is ' + (c > d ? 'empty' : 'position ' + c + ' to position ' + d) + '.' });
+    if (a > b) {
+      snap({ lines: [13, 14], title: 'Empty range', note: 'pre_lo > pre_hi is true. This range has no nodes. The call returns None.' });
+      stack.pop();
+      return null;
+    }
+    var node = { val: preA[a], left: null, right: null };
+    f.root = node.val; created.push(node.val);
+    snap({ lines: [15], title: 'Make the root', newNode: node.val, rows: ['root'],
+      note: 'The first value of the preorder range is the root of this subtree. pre[' + a + '] = ' + node.val + '. Node(' + node.val + ') is created.' });
+    if (a === b) {
+      finished.push(node.val);
+      snap({ lines: [16, 17], title: 'Leaf', note: 'pre_lo == pre_hi is true. The range has one node. Node ' + node.val + ' is a leaf. The call returns it.' });
+      stack.pop();
+      return node;
+    }
+    snap({ lines: [16], title: 'Not a leaf', note: 'pre_lo == pre_hi is false. The range has ' + (b - a + 1) + ' nodes. The function goes on.' });
+    f.leftRoot = preA[a + 1];
+    snap({ lines: [19], title: 'Find the left child', rows: ['left_root'],
+      note: 'In preorder, the value after the root is the root of the left subtree. left_root = pre[' + (a + 1) + '] = ' + f.leftRoot + '.' });
+    f.i = posIdx[f.leftRoot];
+    snap({ lines: [20], title: 'Look up in postorder', rows: ['i'],
+      note: 'pos[' + f.leftRoot + '] = ' + f.i + '. In postorder, a subtree ends with its own root. So the left subtree ends at index ' + f.i + '.' });
+    f.size = f.i - c + 1;
+    sizes.push([node.val, f.size]);
+    snap({ lines: [21], title: 'Size of the left subtree', rows: ['size'],
+      note: 'size = i − post_lo + 1 = ' + f.i + ' − ' + c + ' + 1 = ' + f.size + '. The left subtree has ' + plural(f.size, 'node') +
+        '. The right subtree has ' + plural(b - a - f.size, 'node') + '. The colors in the lists show the two parts.' });
+    var la = a + 1, lb = a + f.size, lc = c, ld = f.i;
+    snap({ lines: [23, 24], title: 'Call for the left subtree',
+      note: 'root.left = rec(' + la + ', ' + lb + ', ' + lc + ', ' + ld + '). The left subtree uses preorder ' + la + ' to ' + lb + ' and postorder ' + lc + ' to ' + ld + '.' });
+    var L = rec(la, lb, lc, ld);
+    node.left = L;
+    if (L) edges.push([node.val, L.val]);
+    snap({ lines: [23, 24], title: 'Attach the left subtree', newEdge: L ? [node.val, L.val] : null,
+      note: L ? 'The call returns node ' + L.val + '. root.left = ' + L.val + '. The left edge appears.'
+              : 'The call returns None. root.left = None. Node ' + node.val + ' has no left child.' });
+    var ra = a + f.size + 1, rb = b, rc = f.i + 1, rd = d - 1;
+    snap({ lines: [25, 26], title: 'Call for the right subtree',
+      note: 'root.right = rec(' + ra + ', ' + rb + ', ' + rc + ', ' + rd + '). The right subtree uses preorder ' + ra + ' to ' + rb + ' and postorder ' + rc + ' to ' + rd +
+        '. The last postorder position ' + d + ' is the root, so the range stops at ' + rd + '.' });
+    var R = rec(ra, rb, rc, rd);
+    node.right = R;
+    if (R) edges.push([node.val, R.val]);
+    snap({ lines: [25, 26], title: 'Attach the right subtree', newEdge: R ? [node.val, R.val] : null,
+      note: R ? 'The call returns node ' + R.val + '. root.right = ' + R.val + '. The right edge appears.'
+              : 'The call returns None. root.right = None. Node ' + node.val + ' has no right child.' });
+    finished.push(node.val);
+    snap({ lines: [27], title: 'Return the root', note: 'return root. Node ' + node.val + ' now has its full subtree. The call returns it.' });
+    stack.pop();
+    return node;
+  }
+
+  snap({ title: 'Start', note: 'The preorder list is ' + preA.join(' ') + '. The postorder list is ' + postA.join(' ') + '. The tree has ' + plural(n, 'node') + '. build(pre, post) builds it.' });
+  snap({ lines: [9], title: 'Build the map',
+    note: 'pos maps each value to its index in postorder: ' + postA.map(function (v, i) { return v + ' → ' + i; }).join(', ') + '.' });
+  snap({ lines: [29], title: 'First call', note: 'build calls rec(0, ' + (n - 1) + ', 0, ' + (n - 1) + '). The ranges cover both lists.' });
+  var root = rec(0, n - 1, 0, n - 1);
+  snap({ lines: [29], title: 'Done', done: true,
+    note: 'The first call returns node ' + root.val + '. The tree is built. It has ' + plural(n, 'node') + '. The program made ' + plural(calls, 'call') + ' to rec.' });
+
+  var layout = {}, rank = 0, shape = { leaves: 0, two: 0, one: 0 };
+  (function walk(t, d) {
+    if (!t) return;
+    walk(t.left, d + 1);
+    layout[t.val] = { rank: rank++, depth: d };
+    walk(t.right, d + 1);
+    var kids = (t.left ? 1 : 0) + (t.right ? 1 : 0);
+    if (kids === 0) shape.leaves++; else if (kids === 2) shape.two++; else shape.one++;
+  })(root, 0);
+  steps.forEach(function (s) { s.layout = layout; s.shape = shape; s.totalCalls = calls; s.built = root; });
+  return steps;
+}
+
+var VW = 740, VH = 450, CW = 50, CG = 6, AX0 = 118, SP = 54, TY0 = 214, DY = 64, NR = 18;
+function cellX(i) { return AX0 + i * (CW + CG); }
+function r1(v) { return Math.round(v * 10) / 10; }
+
+function cellClass(st, kind, idx) {
+  var c = 'cell';
+  var f = st.stack.length ? st.stack[st.stack.length - 1] : null;
+  if (!f) return c;
+  var lo = kind === 'pre' ? f.preLo : f.postLo, hi = kind === 'pre' ? f.preHi : f.postHi;
+  if (idx < lo || idx > hi) return c + ' dim';
+  if (kind === 'pre') {
+    if (idx === f.preLo && f.root !== null) c += ' rt';
+    if (f.size !== null) {
+      if (idx >= f.preLo + 1 && idx <= f.preLo + f.size) c += ' L';
+      else if (idx > f.preLo + f.size) c += ' R';
+    }
+    if (f.leftRoot !== null && idx === f.preLo + 1) c += ' cur';
+  } else {
+    if (idx === f.postHi && f.root !== null) c += ' rt';
+    if (f.size !== null) {
+      if (idx >= f.postLo && idx <= f.i) c += ' L';
+      else if (idx > f.i && idx < f.postHi) c += ' R';
+    }
+    if (f.i !== null && idx === f.i) c += ' cur';
+  }
+  return c;
+}
+
+function drawSVG(st) {
+  var n = st.n, out = '', i;
+  var label = 'Preorder ' + st.pre.join(' ') + '. Postorder ' + st.post.join(' ') + '. ' + st.created.length + ' of ' + n + ' nodes made, ' + st.edges.length + ' edges drawn.';
+  out += '<svg class="qs" viewBox="0 0 ' + VW + ' ' + VH + '" width="' + VW + '" style="width:100%;max-width:' + VW + 'px;min-width:520px" role="img" aria-label="' + esc(label) + '">';
+  [['pre', 'preorder', 34], ['post', 'postorder', 106]].forEach(function (row) {
+    var arr = row[0] === 'pre' ? st.pre : st.post, y = row[2];
+    out += '<text class="rowlab" x="10" y="' + (y + 23) + '">' + row[1] + '</text>';
+    for (i = 0; i < n; i++) {
+      var x = cellX(i);
+      out += '<g class="' + cellClass(st, row[0], i) + '"><rect x="' + x + '" y="' + y + '" width="' + CW + '" height="36" rx="4"/>' +
+        '<text x="' + (x + CW / 2) + '" y="' + (y + 24) + '" text-anchor="middle">' + esc(arr[i]) + '</text></g>' +
+        '<text class="idx" x="' + (x + CW / 2) + '" y="' + (y + 52) + '" text-anchor="middle">' + i + '</text>';
+    }
+  });
+  out += '<text class="rowlab" x="10" y="' + (TY0 + 5) + '">tree</text>';
+  var TX0 = (VW - (n - 1) * SP) / 2;
+  function px(v) { return TX0 + st.layout[v].rank * SP; }
+  function py(v) { return TY0 + st.layout[v].depth * DY; }
+  st.edges.forEach(function (e) {
+    var x1 = px(e[0]), y1 = py(e[0]), x2 = px(e[1]), y2 = py(e[1]);
+    var dx = x2 - x1, dy = y2 - y1, len = Math.sqrt(dx * dx + dy * dy), ux = dx / len, uy = dy / len;
+    var chg = st.newEdge && st.newEdge[0] === e[0] && st.newEdge[1] === e[1];
+    out += '<g class="lnk' + (chg ? ' chg' : '') + '"><path class="main" pathLength="1" d="M' + r1(x1 + ux * NR) + ',' + r1(y1 + uy * NR) + ' L' + r1(x2 - ux * NR) + ',' + r1(y2 - uy * NR) + '"/></g>';
+  });
+  var top = st.stack.length ? st.stack[st.stack.length - 1] : null;
+  st.created.forEach(function (v) {
+    var done = st.finished.indexOf(v) >= 0;
+    var cls = 'cn' + (done ? '' : ' wip') + (top && top.root === v ? ' cur' : '');
+    out += '<g class="' + cls + '"><circle cx="' + r1(px(v)) + '" cy="' + r1(py(v)) + '" r="' + NR + '"/><text x="' + r1(px(v)) + '" y="' + r1(py(v) + 5.5) + '" text-anchor="middle">' + esc(v) + '</text></g>';
+  });
+  return out + '</svg>';
+}
+
+function tableHTML(st) {
+  var f = st.stack.length ? st.stack[st.stack.length - 1] : null;
+  function nv(v) { return (v === null || v === undefined) ? 'not set' : String(v); }
+  var rows = [
+    ['pre_lo', f ? nv(f.preLo) : 'not set'], ['pre_hi', f ? nv(f.preHi) : 'not set'],
+    ['post_lo', f ? nv(f.postLo) : 'not set'], ['post_hi', f ? nv(f.postHi) : 'not set'],
+    ['root', f ? nv(f.root) : 'not set'], ['left_root', f ? nv(f.leftRoot) : 'not set'],
+    ['i', f ? nv(f.i) : 'not set'], ['size', f ? nv(f.size) : 'not set'],
+    ['calls to rec', String(st.calls)]
+  ];
+  return rows.map(function (r) {
+    var unset = r[1] === 'not set';
+    return '<li class="pt' + (st.rows.indexOf(r[0]) >= 0 ? ' hi' : '') + '"><span class="k">' + esc(r[0]) + '</span><span class="v' + (unset ? ' unset' : '') + '">' + esc(r[1]) + '</span></li>';
+  }).join('');
+}
+
+function framesHTML(st) {
+  if (!st.stack.length) return '<li class="empty">Empty. ' + (st.done ? 'All calls have returned.' : 'The first call has not started.') + '</li>';
+  return st.stack.slice().reverse().map(function (f, idx) {
+    var depth = st.stack.length - idx;
+    var parts = [];
+    if (f.preLo > f.preHi) parts.push('empty range');
+    else parts.push(f.root === null ? 'root not made yet' : 'root ' + f.root);
+    if (f.leftRoot !== null) parts.push('left_root ' + f.leftRoot);
+    if (f.size !== null) parts.push('size ' + f.size);
+    return '<li class="frame' + (idx === 0 ? ' top' : '') + '"><div class="fh"><span>rec(' + f.preLo + ', ' + f.preHi + ', ' + f.postLo + ', ' + f.postHi + ')</span><span>depth ' + depth + '</span></div>' +
+      '<div class="fv">' + parts.join(', ') + '</div></li>';
+  }).join('');
+}
+
+function formulaHTML(st) {
+  var n = st.n, sh = st.shape, full = sh.one === 0, m = (n - 1) / 2;
+  var left = '<div><p class="f-h">Split the ranges</p>' +
+    '<p class="f-m">left_root = pre[pre_lo + 1]</p>' +
+    '<p class="f-m">i = pos[left_root]</p>' +
+    '<p class="f-m">size = i − post_lo + 1</p>' +
+    '<p class="f-note">Preorder lists the root, then the left subtree, then the right subtree. Postorder lists the left subtree, then the right subtree, then the root. The root of the left subtree is first in its preorder part. It is last in its postorder part. So i, its index in postorder, is where the left subtree ends.</p>' +
+    '<p class="f-m">left: pre[pre_lo + 1 .. pre_lo + size], post[post_lo .. i]</p>' +
+    '<p class="f-m">right: pre[pre_lo + size + 1 .. pre_hi], post[i + 1 .. post_hi − 1]</p>' +
+    '<p class="f-note">The last postorder value, post[post_hi], is the root. The right range stops one place before it.</p>' +
+    '<p class="f-h">Cost</p>' +
+    '<p class="f-m">T(n) = T(k) + T(n − 1 − k) + O(1) = O(n)</p>' +
+    '<p class="f-note">k is the size of the left subtree. Each call makes one node and does O(1) work, because the map pos gives i at once. Without the map, the search for i takes O(n) time, and the worst case is O(n²). Extra space: O(n) for the map, and O(h) for the call stack. Here h is the height of the tree.</p>' +
+    '<p class="f-h">Why the tree must be full</p>' +
+    '<p class="f-m">leaves = (n + 1) / 2, internal nodes = (n − 1) / 2</p>' +
+    '<p class="f-m">full trees with n = 2m + 1 nodes: (2m)! / (m! (m + 1)!)</p>' +
+    '<p class="f-note">Preorder and postorder together define one tree only when every node has 0 or 2 children. If a node has one child, that child can be the left child or the right child, and both lists stay the same. This code always puts a single child on the left.</p></div>';
+  var rows = '<tr><th>Item</th><th>Value</th></tr>' +
+    '<tr><td style="text-align:left">Nodes n</td><td>' + n + '</td></tr>' +
+    '<tr><td style="text-align:left">Leaves' + (full ? ': (n + 1) / 2' : '') + '</td><td>' + sh.leaves + '</td></tr>' +
+    '<tr><td style="text-align:left">' + (full ? 'Internal nodes: (n − 1) / 2' : 'Nodes with two children') + '</td><td>' + sh.two + '</td></tr>' +
+    (full ? '<tr><td style="text-align:left">Full trees with n nodes</td><td>' + catalan(m) + '</td></tr>'
+          : '<tr><td style="text-align:left">Nodes with one child</td><td>' + sh.one + '</td></tr>') +
+    '<tr><td style="text-align:left">Calls to rec' + (full ? ': n' : ': n + nodes with one child') + '</td><td>' + st.totalCalls + '</td></tr>' +
+    '<tr><td class="last" style="text-align:left">So far: calls to rec</td><td class="last">' + st.calls + '</td></tr>' +
+    '<tr><td class="last" style="text-align:left">So far: nodes made</td><td class="last">' + st.created.length + '</td></tr>' +
+    '<tr><td class="last" style="text-align:left">So far: deepest call stack</td><td class="last">' + st.maxDepth + '</td></tr>' +
+    '<tr><td class="last" style="text-align:left">So far: left subtree sizes</td><td class="last">' + (st.sizes.length ? st.sizes.map(function (s) { return s[0] + ' ' + s[1]; }).join(', ') : 'none') + '</td></tr>';
+  var right = '<div><p class="f-h">With this input</p><div class="tblwrap"><table class="jt">' + rows + '</table></div>' +
+    (full
+      ? (st.done && st.calls === st.totalCalls && st.created.length === n
+          ? '<p class="f-ok">The run made ' + n + ' nodes in ' + st.calls + ' calls. This matches the formula.</p>'
+          : '<p class="f-note">This input is a full tree. Each node has 0 or 2 children. The tree is the only one with these two lists.</p>')
+      : '<p class="f-note">This input is not a full tree. ' + sh.one + ' node' + (sh.one === 1 ? ' has' : 's have') + ' one child. Other trees have the same two lists, with those children on the right. The code builds the tree with all single children on the left. Each such node adds one extra call, with an empty range.</p>') +
+    '</div>';
+  return left + right;
+}
+//SIM-END
+
+var TRACE = {
+  code: [
+    'class Node:',
+    '    def __init__(self, val):',
+    '        self.val = val',
+    '        self.left = None',
+    '        self.right = None',
+    '',
+    'def build(pre, post):',
+    '    # Map each value to its index in postorder',
+    '    pos = {v: i for i, v in enumerate(post)}',
+    '',
+    '    def rec(pre_lo, pre_hi, post_lo, post_hi):',
+    '        # Ranges are inclusive',
+    '        if pre_lo > pre_hi:',
+    '            return None',
+    '        root = Node(pre[pre_lo])',
+    '        if pre_lo == pre_hi:',
+    '            return root  # leaf',
+    '',
+    '        left_root = pre[pre_lo + 1]',
+    '        i = pos[left_root]',
+    '        size = i - post_lo + 1  # number of nodes in left subtree',
+    '',
+    '        root.left = rec(pre_lo + 1, pre_lo + size,',
+    '                        post_lo, i)',
+    '        root.right = rec(pre_lo + size + 1, pre_hi,',
+    '                         i + 1, post_hi - 1)',
+    '        return root',
+    '',
+    '    return rec(0, len(pre) - 1, 0, len(post) - 1)'
+  ],
+  hl: function (s) {
+    var ci = s.indexOf('#'), code = ci >= 0 ? s.slice(0, ci) : s, cm = ci >= 0 ? s.slice(ci) : '';
+    var h = esc(code)
+      .replace(/\b(class|def|return|if|for|in|None)\b/g, '<span class="kw">$1</span>')
+      .replace(/\b(build|rec|Node)\b/g, '<span class="fn">$1</span>')
+      .replace(/\b(self)\b/g, '<span class="ty">$1</span>');
+    return h + (cm ? '<span class="cm">' + esc(cm) + '</span>' : '');
+  },
+  simulate: function () {
+    return simulate(+document.getElementById('selInput').value);
+  },
+  render: function (s) {
+    document.getElementById('stage').innerHTML = drawSVG(s);
+    document.getElementById('ptable').innerHTML = tableHTML(s);
+    document.getElementById('frames').innerHTML = framesHTML(s);
+    document.getElementById('formula').innerHTML = formulaHTML(s);
+  }
+};
+
+</script>
+<script src="../../assets/player.js"></script>
+</body>
+</html>

@@ -1,0 +1,708 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Red-Black Tree Insertion</title>
+<link rel="stylesheet" href="../../assets/base.css">
+<link rel="stylesheet" href="../../assets/trace.css">
+<script src="../../assets/theme.js"></script>
+<style>
+.p-code .code { max-height: 560px; overflow: auto; }
+.av { transition: opacity 0.3s; }
+.av.gone { opacity: 0; pointer-events: none; }
+.av circle { fill: var(--paper); stroke: var(--ink); stroke-width: 1.8; }
+.av text.key { font: 700 15px var(--font-mono); fill: var(--ink); }
+.av .pill { fill: var(--paper); stroke: var(--line); stroke-width: 1.2; }
+.av .bf { font: 700 11px var(--font-mono); fill: var(--ink); }
+.av .ht { font: 500 11px var(--font-mono); fill: var(--muted); }
+.av .role { font: 700 14px var(--font-mono); fill: var(--accent); }
+.av.out .pill { fill: var(--accent); stroke: var(--accent); }
+.av.out .bf { fill: var(--on-accent); }
+.av .pill.stale { stroke-dasharray: 3 2; stroke: var(--muted); fill: transparent; }
+.av .bf.stale, .av .ht.stale { fill: var(--muted); }
+.av.path circle { stroke: var(--accent); stroke-width: 2.2; }
+.av.cur circle { stroke: var(--accent); stroke-width: 3.4; }
+.av.bad circle { stroke: var(--accent); stroke-width: 3.4; fill: var(--hl); }
+.av.r-z circle { fill: var(--accent); stroke: var(--accent); }
+.av.r-z text.key { fill: var(--on-accent); }
+.av.r-z .role { fill: var(--accent); }
+.av.r-y circle { fill: var(--le); }
+.av.r-x circle { fill: var(--gt); }
+.av.mv circle { stroke: var(--accent); stroke-width: 3; stroke-dasharray: 4 3; }
+.av.rem circle { stroke: var(--accent); stroke-width: 3.4; stroke-dasharray: 5 3; fill: transparent; }
+.ae { stroke: var(--ink); stroke-width: 1.8; stroke-linecap: round; transition: opacity 0.3s; }
+.ae.chg { stroke: var(--accent); stroke-width: 3.2; }
+.ae.gone { opacity: 0; }
+.minis { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin: 0 0 14px; }
+.mini { border: 1px solid var(--line); border-radius: 6px; padding: 8px 12px 6px; }
+.mini.on { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+.mini .mh { display: flex; justify-content: space-between; gap: 10px; margin: 0 0 2px; font: 12px var(--font-mono); color: var(--muted); }
+.mini .mh b { color: var(--ink); font-size: 14px; }
+.mini svg { display: block; width: 100%; height: auto; }
+.me { stroke: var(--ink); stroke-width: 1.4; }
+.mn circle { fill: var(--paper); stroke: var(--ink); stroke-width: 1.4; }
+.mn text { font: 700 11px var(--font-mono); fill: var(--ink); }
+.mn.r-z circle { fill: var(--accent); stroke: var(--accent); }
+.mn.r-z text { fill: var(--on-accent); }
+.mn.r-y circle { fill: var(--le); }
+.mn.r-x circle { fill: var(--gt); }
+.mt polygon { fill: var(--paper); stroke: var(--muted); stroke-width: 1.2; }
+.mt text { font: 500 9px var(--font-mono); fill: var(--muted); }
+.mar { fill: none; stroke: var(--muted); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.lg-pill { display: inline-block; min-width: 26px; padding: 0 5px; border: 1.2px solid var(--line); border-radius: 8px; font: 700 11px/16px var(--font-mono); text-align: center; color: var(--ink); }
+.lg-pill.out { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.lg-pill.stale { border-style: dashed; border-color: var(--muted); color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { .av, .ae { transition: none; } }
+
+.ost .ae { stroke: var(--ink); stroke-width: 1.8; stroke-linecap: round; }
+.ost g.on circle { fill: var(--paper); stroke: var(--ink); stroke-width: 1.8; }
+.ost g.on text.key { font: 700 15px var(--font-mono); fill: var(--ink); }
+.ost .pill { fill: var(--paper); stroke: var(--line); stroke-width: 1.2; }
+.ost .bf { font: 700 11px var(--font-mono); fill: var(--ink); }
+.ost g.on.rng circle { fill: var(--le); }
+.ost g.on.cnt circle { fill: var(--gt); }
+.ost g.on.path circle { stroke: var(--accent); stroke-width: 2.2; }
+.ost g.on.cur circle { stroke: var(--accent); stroke-width: 3.6; }
+.ost g.on.cur .pill { fill: var(--accent); stroke: var(--accent); }
+.ost g.on.cur .bf { fill: var(--on-accent); }
+.ost g.on.fnd circle { fill: var(--done); stroke: var(--done); }
+.ost g.on.fnd text.key { fill: var(--on-done); }
+.ost g.on.dim { opacity: 0.4; }
+.ost .sc rect { fill: var(--paper); stroke: var(--ink); stroke-width: 1.4; }
+.ost .sc text { font: 700 13px var(--font-mono); fill: var(--ink); }
+.ost .sc.rng rect { fill: var(--le); }
+.ost .sc.cnt rect { fill: var(--gt); }
+.ost .sc.cur rect { stroke: var(--accent); stroke-width: 3; }
+.ost .sc.fnd rect { fill: var(--done); stroke: var(--done); }
+.ost .sc.fnd text { fill: var(--on-done); }
+.ost .tgt { fill: var(--accent); }
+.ost .tgtl { font: 500 12px var(--font-mono); fill: var(--accent); }
+
+.rn { transition: opacity 0.3s; }
+.rn.gone { opacity: 0; pointer-events: none; }
+.rn circle { stroke-width: 1.8; transition: fill 0.45s; }
+.rn.red circle { fill: var(--rbred); stroke: var(--rbredline); }
+.rn.blk circle { fill: var(--rbblk); stroke: var(--rbline); }
+.rn text.key { font: 700 15px var(--font-mono); fill: var(--rbtext); }
+.rn .pill { fill: var(--paper); stroke: var(--line); stroke-width: 1.2; }
+.rn .bf { font: 700 11px var(--font-mono); fill: var(--ink); }
+.rn .role { font: 700 15px var(--font-mono); fill: var(--done); }
+.rn.path circle { stroke: var(--accent); stroke-width: 2.6; }
+.rn.flash circle { stroke: var(--accent); stroke-width: 4.2; }
+.rn.cur circle { stroke: var(--done); stroke-width: 4.2; }
+.rn.mv circle { stroke: var(--done); stroke-width: 3.4; stroke-dasharray: 4 3; }
+.mn.red circle { fill: var(--rbred); stroke: var(--rbredline); }
+.mn.blk circle { fill: var(--rbblk); stroke: var(--rbline); }
+.mn.red text, .mn.blk text { fill: var(--rbtext); }
+.sw.rbred { background: var(--rbred); border-color: var(--rbredline); }
+.sw.rbblk { background: var(--rbblk); border-color: var(--rbline); }
+@media (prefers-reduced-motion: reduce) { .rn, .rn circle { transition: none; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <a class="back" href="index.html">&larr; Data Structures and Algorithms</a>
+  <header>
+    <div class="intro">
+      <h1>Red-black tree insertion</h1>
+      <p>Insert has two phases. First, insert the key as in a normal BST and color the new node red. Second, fix the colors with recoloring and rotations. The fix has four cases: the root, a red uncle, a black uncle with a bend, and a black uncle with a straight line. Choose an example and watch the colors and links change.</p>
+    </div>
+    <div class="picks"><div class="pick"><label class="label" for="selInput">Example</label><select id="selInput" class="param"><option value="0" selected>Case 1: red uncle (recolor)</option><option value="1">Case 3: line (one rotation)</option><option value="2">Case 2 then case 3: triangle (two rotations)</option><option value="3">Mirror: triangle on the right side</option><option value="4">Red uncle twice: recolor moves up (insert 185)</option><option value="5">Sorted keys 1 to 10</option><option value="6">All cases in one run (7 keys)</option><option value="7">Bigger mixed run (12 keys)</option></select></div><div class="pick"><label class="label" for="selDetail">Detail</label><select id="selDetail" class="param"><option value="short" selected>Key steps only</option><option value="full">Every comparison on the way down</option></select></div></div>
+  </header>
+
+  <section class="panel controls" aria-label="Playback controls">
+    <button type="button" class="btn" id="reset">Reset</button>
+    <button type="button" class="btn" id="prev">Back</button>
+    <button type="button" class="btn primary" id="play">Play</button>
+    <button type="button" class="btn" id="next">Next</button>
+    <input type="range" class="scrub" id="scrub" min="0" max="1" value="0" aria-label="Step">
+    <span class="stepno" id="stepno">Step 0 of 0</span>
+    <label class="spd"><span class="label">Speed</span>
+      <select id="speed">
+        <option value="2600">Slow</option>
+        <option value="1600" selected>Normal</option>
+        <option value="800">Fast</option>
+      </select>
+    </label>
+  </section>
+
+  <div class="layout">
+    <section class="panel p-code">
+      <h2>Code (Python)</h2>
+      <ol class="code" id="code" aria-label="Source code"></ol>
+    </section>
+
+    <section class="panel p-diagram">
+      <h2>Diagram</h2>
+      <div class="stage" id="stage"></div>
+      <div class="legend"><span><span class="sw rbred"></span>Red node</span><span><span class="sw rbblk"></span>Black node</span><span><b style="color:var(--done);font-family:var(--font-mono)">z p g u</b>&nbsp;the nodes of the case</span><span><svg viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="8" fill="none" stroke="currentColor" stroke-width="3"/></svg>Current node</span><span><svg viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="3 3"/></svg>Subtree that changes parent</span><span><span class="lg-pill">R</span>color letter, for readers who cannot see colors</span></div>
+    </section>
+
+    <section class="panel p-table">
+      <h2>Pointers</h2>
+      <ul class="ptable" id="ptable" aria-label="Pointer values"></ul>
+    </section>
+
+    <section class="panel p-note">
+      <div class="note-box">
+        <div class="eyebrow"><span id="title">Start</span><span id="lineref"></span></div>
+        <p class="note" id="note" aria-live="polite"></p>
+      </div>
+    </section>
+
+    <section class="panel p-formula">
+      <h2>Formula</h2>
+      <div class="formula" id="formula"></div>
+    </section>
+  </div>
+</div>
+
+<script>
+//SIM-START
+function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+var CODE = [
+  'RED, BLACK = 0, 1',
+  '',
+  'class Node:',
+  '    def __init__(self, key):',
+  '        self.key = key',
+  '        self.color = RED',
+  '        self.left = None',
+  '        self.right = None',
+  '        self.parent = None',
+  '',
+  'class Tree:',
+  '    def __init__(self):',
+  '        self.root = None',
+  '',
+  '    def rotate_left(self, x):',
+  '        y = x.right',
+  '        x.right = y.left',
+  '        if y.left:',
+  '            y.left.parent = x',
+  '        y.parent = x.parent',
+  '        if x.parent is None:',
+  '            self.root = y',
+  '        elif x is x.parent.left:',
+  '            x.parent.left = y',
+  '        else:',
+  '            x.parent.right = y',
+  '        y.left = x',
+  '        x.parent = y',
+  '',
+  '    def rotate_right(self, x):',
+  '        y = x.left',
+  '        x.left = y.right',
+  '        if y.right:',
+  '            y.right.parent = x',
+  '        y.parent = x.parent',
+  '        if x.parent is None:',
+  '            self.root = y',
+  '        elif x is x.parent.right:',
+  '            x.parent.right = y',
+  '        else:',
+  '            x.parent.left = y',
+  '        y.right = x',
+  '        x.parent = y',
+  '',
+  '    def insert(self, key):',
+  '        z = Node(key)                     # a new node is red',
+  '        p = None',
+  '        c = self.root',
+  '        while c:',
+  '            p = c',
+  '            c = c.left if key < c.key else c.right',
+  '        z.parent = p',
+  '        if p is None:',
+  '            self.root = z',
+  '        elif key < p.key:',
+  '            p.left = z',
+  '        else:',
+  '            p.right = z',
+  '        self.fix_insert(z)',
+  '',
+  '    def fix_insert(self, z):',
+  '        while z.parent and z.parent.color == RED:',
+  '            p = z.parent',
+  '            g = p.parent',
+  '            if p is g.left:',
+  '                u = g.right',
+  '                if u and u.color == RED:      # case 1: red uncle',
+  '                    p.color = BLACK',
+  '                    u.color = BLACK',
+  '                    g.color = RED',
+  '                    z = g',
+  '                else:',
+  '                    if z is p.right:          # case 2: triangle',
+  '                        z = p',
+  '                        self.rotate_left(z)',
+  '                        p = z.parent',
+  '                    p.color = BLACK           # case 3: line',
+  '                    g.color = RED',
+  '                    self.rotate_right(g)',
+  '            else:',
+  '                u = g.left',
+  '                if u and u.color == RED:      # case 1: red uncle',
+  '                    p.color = BLACK',
+  '                    u.color = BLACK',
+  '                    g.color = RED',
+  '                    z = g',
+  '                else:',
+  '                    if z is p.left:           # case 2: triangle',
+  '                        z = p',
+  '                        self.rotate_right(z)',
+  '                        p = z.parent',
+  '                    p.color = BLACK           # case 3: line',
+  '                    g.color = RED',
+  '                    self.rotate_left(g)',
+  '        self.root.color = BLACK               # case 0: the root is black'
+];
+function ln(text, nth) {
+  var seen = 0;
+  for (var k = 0; k < CODE.length; k++) {
+    var t = CODE[k].replace(/\s+#.*$/, '').trim();
+    if (t === text) { seen++; if (seen === (nth || 1)) return k + 1; }
+  }
+  throw new Error('line not found: ' + text + ' #' + (nth || 1));
+}
+function rng(a, b) { var o = []; for (var k = a; k <= b; k++) o.push(k); return o; }
+var L = {
+  rlDef: ln('def rotate_left(self, x):'), rlY: ln('y = x.right'), rlA: ln('x.right = y.left'), rlEnd: ln('x.parent = y', 1),
+  rrDef: ln('def rotate_right(self, x):'), rrY: ln('y = x.left'), rrA: ln('x.left = y.right'), rrEnd: ln('x.parent = y', 2),
+  inDef: ln('def insert(self, key):'), inZ: ln('z = Node(key)'), inP: ln('p = None'), inC: ln('c = self.root'), inWhile: ln('while c:'),
+  inStep: ln('p = c'), inNext: ln('c = c.left if key < c.key else c.right'), inZP: ln('z.parent = p'), inNone: ln('if p is None:'),
+  inRoot: ln('self.root = z'), inLt: ln('elif key < p.key:'), inPL: ln('p.left = z'), inPR: ln('p.right = z'), inFix: ln('self.fix_insert(z)'),
+  fxDef: ln('def fix_insert(self, z):'), fxWhile: ln('while z.parent and z.parent.color == RED:'), fxP: ln('p = z.parent', 1), fxG: ln('g = p.parent'),
+  fxIfL: ln('if p is g.left:'), fxIfR: 0,
+  uL: ln('u = g.right'), uR: ln('u = g.left'), redL: ln('if u and u.color == RED:', 1), redR: ln('if u and u.color == RED:', 2),
+  c1pL: ln('p.color = BLACK', 1), c1uL: ln('u.color = BLACK', 1), c1gL: ln('g.color = RED', 1), c1zL: ln('z = g', 1),
+  c1pR: ln('p.color = BLACK', 3), c1uR: ln('u.color = BLACK', 2), c1gR: ln('g.color = RED', 3), c1zR: ln('z = g', 2),
+  triL: ln('if z is p.right:'), triR: ln('if z is p.left:'),
+  zpL: ln('z = p', 1), zpR: ln('z = p', 2), rotPL: ln('self.rotate_left(z)'), rotPR: ln('self.rotate_right(z)'),
+  pagL: ln('p = z.parent', 2), pagR: ln('p = z.parent', 3),
+  c3pL: ln('p.color = BLACK', 2), c3gL: ln('g.color = RED', 2), rotGL: ln('self.rotate_right(g)'),
+  c3pR: ln('p.color = BLACK', 4), c3gR: ln('g.color = RED', 4), rotGR: ln('self.rotate_left(g)'),
+  rootBlack: ln('self.root.color = BLACK')
+};
+(function () { // the 'else:' of "if p is g.left" is the one just before 'u = g.left'
+  L.fxIfR = L.uR - 1;
+})();
+
+// setup keys are inserted silently. keys are the traced insertions.
+var PRESETS = [
+  { name: 'Case 1: red uncle (recolor)', setup: [10, 5, 15], keys: [1] },
+  { name: 'Case 3: line (one rotation)', setup: [], keys: [30, 20, 10] },
+  { name: 'Case 2 then case 3: triangle (two rotations)', setup: [], keys: [20, 10, 15] },
+  { name: 'Mirror: triangle on the right side', setup: [], keys: [10, 30, 20] },
+  { name: 'Red uncle twice: recolor moves up (insert 185)', setup: [15, 50, 40, 200, 195, 75, 105, 80, 135], keys: [185] },
+  { name: 'Sorted keys 1 to 10', setup: [], keys: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] },
+  { name: 'All cases in one run (7 keys)', setup: [], keys: [150, 50, 140, 10, 35, 90, 40] },
+  { name: 'Bigger mixed run (12 keys)', setup: [], keys: [140, 5, 20, 30, 130, 45, 35, 110, 95, 90, 145, 60] }
+];
+
+function simulate(pi, detail) {
+  var P = PRESETS[pi], steps = [], root = null, nid = 0, silent = true, V = {}, RL = {};
+  var counts = { c0: 0, c1: 0, c2: 0, c3: 0, rot: 0, recolor: 0 };
+  var opLabel = 'none', opNo = 0;
+  function mk(key) { return { id: ++nid, key: key, red: true, left: null, right: null, parent: null }; }
+  function isRed(n) { return !!n && n.red; }
+  function cn(n) { return n ? (n.red ? 'red' : 'black') : 'None (black)'; }
+  function layout() {
+    var rank = 0, nodes = [], edges = [];
+    (function walk(n, d) {
+      if (!n) return;
+      walk(n.left, d + 1);
+      nodes.push({ id: n.id, key: n.key, red: n.red, rank: rank++, d: d, par: n.parent ? n.parent.id : 0 });
+      walk(n.right, d + 1);
+      if (n.left) edges.push([n.id, n.left.id]);
+      if (n.right) edges.push([n.id, n.right.id]);
+    })(root, 0);
+    return { nodes: nodes, edges: edges };
+  }
+  function bhOf(n) { var b = 0; while (n) { if (!n.red) b++; n = n.left; } return b; }
+  function snap(o) {
+    if (silent) return;
+    if (o.full && detail === 'short') return;
+    if (o.short && detail === 'full') return;
+    var lay = layout(), maxD = 0;
+    lay.nodes.forEach(function (x) { if (x.d + 1 > maxD) maxD = x.d + 1; });
+    steps.push({
+      lines: o.lines || [], title: o.title, note: o.note, nodes: lay.nodes, edges: lay.edges, height: maxD, bh: bhOf(root),
+      cur: o.cur || 0, roles: o.roles || {}, mv: o.mv || 0, flash: o.flash || [], newEdge: o.newEdge || null, newNode: o.newNode || 0, path: o.path || [],
+      vars: JSON.parse(JSON.stringify(V)), rows: o.rows || [], caseName: o.caseName || null, counts: JSON.parse(JSON.stringify(counts)),
+      op: opLabel, opNo: opNo, opTotal: P.keys.length, done: !!o.done
+    });
+  }
+  function roles(z, p, g, u) { var r = {}; if (u) r[u.id] = 'u'; if (g) r[g.id] = 'g'; if (p) r[p.id] = 'p'; if (z) r[z.id] = 'z'; return r; }
+  function setV(z, p, g, u, cs) {
+    V = { z: z ? z.key : undefined, p: p ? p.key : undefined, g: g ? g.key : undefined, u: u === undefined ? undefined : (u ? u.key : 'None'), cs: cs };
+  }
+
+  function rot(dir, x, callLine) {
+    var left = dir === 'left', y = left ? x.right : x.left, T = left ? y.left : y.right;
+    var R1 = left ? [L.rlDef, L.rlY] : [L.rrDef, L.rrY], R2 = left ? rng(L.rlA, L.rlEnd) : rng(L.rrA, L.rrEnd);
+    var other = left ? 'right' : 'left', inner = left ? 'left' : 'right';
+    var par = x.parent;
+    counts.rot++;
+    snap({ lines: [callLine].concat(R1), title: 'Rotate ' + dir + ' at ' + x.key, cur: x.id, roles: RL, mv: T ? T.id : 0,
+      note: 'rotate_' + dir + '(' + x.key + ') starts. y = x.' + other + ' = ' + y.key + '. Node ' + y.key + ' goes up. Node ' + x.key + ' goes down, to the ' + inner + ' of ' + y.key + '. ' +
+        (T ? 'The ' + inner + ' subtree of ' + y.key + ' (root ' + T.key + ') becomes the ' + other + ' subtree of ' + x.key + '.' : 'Node ' + y.key + ' has no ' + inner + ' subtree, so no subtree has to move.') });
+    // real pointer work (as in the code)
+    x[other] = T; if (T) T.parent = x;
+    y.parent = par;
+    if (!par) root = y; else if (par.left === x) par.left = y; else par.right = y;
+    y[inner] = x; x.parent = y;
+    snap({ lines: R2, title: 'Change the links', cur: y.id, roles: RL, mv: T ? T.id : 0, newEdge: [y.id, x.id],
+      note: 'x.' + other + ' = y.' + inner + ', and the parent links are fixed. y.' + inner + ' = x. ' + x.key + ' is now the ' + inner + ' child of ' + y.key + '. ' +
+        (par ? 'The old parent of ' + x.key + ' (' + par.key + ') now links to ' + y.key + '.' : 'Node ' + y.key + ' is the new root.') + ' The keys keep the same left-to-right order. Colors do not change in a rotation.' });
+    return y;
+  }
+
+  function insert(key) {
+    var z = mk(key), p = null, c = root, path = [], dirs = [];
+    V = {};
+    var sumPath = [];
+    var w = root;
+    while (w) { sumPath.push(w.key + (key < w.key ? ' (left)' : ' (right)')); w = key < w.key ? w.left : w.right; }
+    snap({ short: true, lines: [L.inDef, L.inZ], title: 'Insert ' + key, rows: [],
+      note: 'z = Node(' + key + '). A new node is red. ' + (sumPath.length ? 'The search path: ' + sumPath.join(', ') + ', then a free place.' : 'The tree is empty. The new node will be the root.') });
+    snap({ full: true, lines: [L.inDef, L.inZ, L.inP, L.inC], title: 'Insert ' + key, rows: [],
+      note: 'z = Node(' + key + '). A new node is red. p = None. c = the root' + (root ? ' (' + root.key + ')' : ' (None)') + '.' });
+    while (c) {
+      p = c; path.push(c.id);
+      var goL = key < c.key;
+      snap({ full: true, lines: [L.inWhile, L.inStep, L.inNext], title: 'Compare ' + key + ' with ' + c.key, cur: c.id, path: path,
+        note: 'p = ' + c.key + '. ' + key + (goL ? ' < ' : ' > ') + c.key + ', so c = c.' + (goL ? 'left' : 'right') + (goL ? (c.left ? ' = ' + c.left.key : ' = None') : (c.right ? ' = ' + c.right.key : ' = None')) + '.' });
+      c = goL ? c.left : c.right;
+    }
+    z.parent = p;
+    if (!p) root = z; else if (key < p.key) p.left = z; else p.right = z;
+    snap({ lines: [L.inZP].concat(!p ? [L.inNone, L.inRoot] : (key < p.key ? [L.inNone, L.inLt, L.inPL] : [L.inNone, L.inLt, L.inPR])), title: 'Attach the red leaf', cur: z.id, newNode: z.id, newEdge: p ? [p.id, z.id] : null,
+      note: !p ? 'p is None, so z is the root. It is red for now.' : 'z becomes the ' + (key < p.key ? 'left' : 'right') + ' child of ' + p.key + '. Red adds no black node to any path, so the black counts stay equal. Only one rule can break: a red node must not have a red child. That happens if ' + p.key + ' is red.' });
+    fix(z);
+  }
+
+  function fix(z) {
+    snap({ lines: [L.inFix, L.fxDef], title: 'fix_insert', cur: z.id, rows: [],
+      note: 'fix_insert(z) repairs the colors. It runs while z and its parent are both red.' });
+    while (true) {
+      var p = z.parent, viol = !!p && p.red;
+      setV(z, p, null, undefined, null);
+      V.cs = null;
+      if (!viol) {
+        snap({ lines: [L.fxWhile], title: !p ? 'Case 0: z is the root' : 'Parent is black: done', cur: z.id, roles: roles(z, p, null, null), rows: ['z', 'p'], caseName: !p ? 'c0' : null,
+          note: !p ? 'z.parent is None, so z is the root. The loop ends. A red root is fixed after the loop (case 0).' : 'The parent ' + p.key + ' is black. There are no two red nodes in a row. The loop ends. Nothing more to fix.' });
+        break;
+      }
+      var g = p.parent, left = p === g.left;
+      setV(z, p, g, undefined, null);
+      snap({ lines: [L.fxWhile], title: 'Red node with a red parent', cur: z.id, roles: roles(z, p, g, null), rows: ['z', 'p'],
+        note: 'z = ' + z.key + ' is red and its parent ' + p.key + ' is red. Two red nodes in a row break the rules. The root is black, so the red parent has a parent: the grandparent g = ' + g.key + '. g is black.' });
+      snap({ lines: [L.fxP, L.fxG, left ? L.fxIfL : L.fxIfR], title: 'Find the uncle', cur: z.id, roles: roles(z, p, g, null), rows: ['p', 'g'],
+        note: 'p = z.parent = ' + p.key + '. g = p.parent = ' + g.key + '. p is the ' + (left ? 'left' : 'right') + ' child of g. So the uncle u is the ' + (left ? 'right' : 'left') + ' child of g.' });
+      var u = left ? g.right : g.left;
+      setV(z, p, g, u, null);
+      var rl = roles(z, p, g, u);
+      RL = rl;
+      snap({ lines: [left ? L.uL : L.uR, left ? L.redL : L.redR], title: u && u.red ? 'Uncle is red' : 'Uncle is black', cur: z.id, roles: rl, rows: ['u'],
+        note: 'u = g.' + (left ? 'right' : 'left') + (u ? ' = ' + u.key + '. It is ' + cn(u) + '.' : ' = None. A missing node counts as black.') + (u && u.red ? ' The uncle is red: case 1.' : ' The uncle is black: case 2 or case 3. Next, look at the shape of z, p, and g.') });
+      if (u && u.red) {
+        counts.c1++; counts.recolor += 3;
+        V.cs = 'Case 1';
+        p.red = false; u.red = false; g.red = true;
+        snap({ lines: [left ? L.c1pL : L.c1pR, left ? L.c1uL : L.c1uR, left ? L.c1gL : L.c1gR], title: 'Case 1: recolor', cur: g.id, roles: rl, flash: [p.id, u.id, g.id], caseName: 'c1', rows: ['case'],
+          note: 'Red uncle. Color the parent ' + p.key + ' black, the uncle ' + u.key + ' black, and the grandparent ' + g.key + ' red. Every path through g still has the same number of black nodes: g gave its black color to its two children. The red-red pair below g is gone.' });
+        z = g;
+        setV(z, z.parent, null, undefined, 'Case 1'); V.cs = 'Case 1';
+        snap({ lines: [left ? L.c1zL : L.c1zR], title: 'z = g: check again', cur: z.id, roles: roles(z, z.parent, null, null), caseName: 'c1', rows: ['z'],
+          note: 'z = ' + z.key + '. Node ' + z.key + ' is red now. Its parent may be red too, so the loop checks again one level higher.' });
+        continue;
+      }
+      var inner = left ? z === p.right : z === p.left;
+      snap({ lines: [left ? L.triL : L.triR], title: inner ? 'Triangle: case 2' : 'Line: case 3', cur: z.id, roles: rl, caseName: inner ? 'c2' : 'c3', rows: ['z', 'p'],
+        note: inner ? 'z is the ' + (left ? 'right' : 'left') + ' child of p, and p is the ' + (left ? 'left' : 'right') + ' child of g. The three nodes make a triangle (a bend). A rotation at g alone would not help. First rotate p away from z, to turn the bend into a line.'
+                    : 'z is the ' + (left ? 'left' : 'right') + ' child of p, and p is the ' + (left ? 'left' : 'right') + ' child of g. The three nodes make a straight line. Go to case 3.' });
+      if (inner) {
+        counts.c2++;
+        var oldP = p;
+        snap({ lines: [left ? L.zpL : L.zpR], title: 'z = p', cur: p.id, roles: rl, caseName: 'c2', rows: ['z'],
+          note: 'z = p = ' + p.key + '. We rotate at ' + p.key + ' next. The new z is the old parent.' });
+        z = p;
+        RL = roles(z, p, g, u);
+        rot(left ? 'left' : 'right', z, left ? L.rotPL : L.rotPR);
+        p = z.parent;
+        setV(z, p, g, u, 'Case 2');
+        rl = roles(z, p, g, u); RL = rl;
+        snap({ lines: [left ? L.pagL : L.pagR], title: 'p = z.parent', cur: z.id, roles: rl, caseName: 'c2', rows: ['z', 'p'],
+          note: 'The rotation made ' + p.key + ' the parent of ' + z.key + '. Now z = ' + z.key + ', p = ' + p.key + ', and g = ' + g.key + ' are in a straight line. Both z and p are red. This is case 3.' });
+      }
+      counts.c3++; counts.recolor += 2;
+      V.cs = 'Case 3';
+      p.red = false; g.red = true;
+      snap({ lines: [left ? L.c3pL : L.c3pR, left ? L.c3gL : L.c3gR], title: 'Case 3: recolor', cur: p.id, roles: rl, flash: [p.id, g.id], caseName: 'c3', rows: ['case'],
+        note: 'Color the parent ' + p.key + ' black and the grandparent ' + g.key + ' red. After the rotation, ' + p.key + ' will be on top. A black node on top, with a red child on each side, keeps the black count on every path.' });
+      RL = rl;
+      rot(left ? 'right' : 'left', g, left ? L.rotGL : L.rotGR);
+      snap({ lines: [left ? L.rotGL : L.rotGR], title: 'Case 3: done', cur: p.id, roles: rl, caseName: 'c3', rows: [],
+        note: 'The subtree now has ' + p.key + ' (black) on top, with red children ' + z.key + ' and ' + g.key + '. The loop checks again. The parent of ' + p.key + ' is not red, so the loop will end.' });
+    }
+    var wasRed = root.red;
+    if (wasRed) { counts.c0++; counts.recolor++; }
+    V = { z: undefined };
+    root.red = false;
+    snap({ lines: [L.rootBlack], title: 'Case 0: the root is black', cur: root.id, flash: wasRed ? [root.id] : [], caseName: 'c0', rows: [],
+      note: wasRed ? 'The root ' + root.key + ' is red. Color it black. This adds one black node to every path, so the black counts stay equal.' : 'The root ' + root.key + ' is already black. Nothing changes.' });
+  }
+
+  P.setup.forEach(function (k) { insert(k); });
+  counts = { c0: 0, c1: 0, c2: 0, c3: 0, rot: 0, recolor: 0 };
+  silent = false;
+  V = {};
+  snap({ title: 'Start', lines: [], rows: [],
+    note: (P.setup.length ? 'The red-black tree already holds ' + P.setup.join(', ') + '. ' : 'The tree is empty. ') + 'The run inserts ' + P.keys.join(', ') + '. Each insert has two phases: a normal BST insert with a red node, then fix_insert. Press Next.' });
+  P.keys.forEach(function (k, i) {
+    opNo = i + 1; opLabel = 'insert ' + k;
+    var before = JSON.parse(JSON.stringify(counts));
+    insert(k);
+    var lay = layout(), h = 0; lay.nodes.forEach(function (x) { if (x.d + 1 > h) h = x.d + 1; });
+    V = {};
+    snap({ title: 'Done: insert ' + k, lines: [], done: true, rows: [],
+      note: 'The tree has ' + lay.nodes.length + (lay.nodes.length === 1 ? ' node' : ' nodes') + ', height ' + h + ', and black height ' + bhOf(root) + '. This insert used ' + (counts.c1 - before.c1) + ' × case 1, ' + (counts.c2 - before.c2) + ' × case 2, ' + (counts.c3 - before.c3) + ' × case 3, and ' + (counts.rot - before.rot) + (counts.rot - before.rot === 1 ? ' rotation' : ' rotations') + '. The root is black, no red node has a red child, and every path from the root to a missing child has ' + bhOf(root) + ' black nodes.' });
+  });
+  var maxN = 0, maxD = 0;
+  steps.forEach(function (s) { if (s.nodes.length > maxN) maxN = s.nodes.length; if (s.height > maxD) maxD = s.height; });
+  steps.forEach(function (s) { s.maxN = maxN; s.maxD = maxD; });
+  return steps;
+}
+//SIM-END
+
+// ---------- drawing ----------
+var SPX = 46, DYY = 64, NR = 17, TOPY = 44, MX = 40, DUR = 520;
+var runId = 0;
+var view = { run: -1, svg: null, nodes: {}, edges: {}, pos: {}, raf: 0 };
+var SVGNS = 'http://www.w3.org/2000/svg';
+function mkEl(tag, cls, parent) {
+  var e = document.createElementNS(SVGNS, tag);
+  if (cls) e.setAttribute('class', cls);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function ensureSvg(s) {
+  var stage = document.getElementById('stage');
+  if (view.run === s.run && view.svg && stage.contains(view.svg)) return;
+  if (view.raf) { cancelAnimationFrame(view.raf); view.raf = 0; }
+  var vw = Math.max(400, (s.maxN - 1) * SPX + 2 * MX + 24), vh = TOPY + (Math.max(s.maxD, 1) - 1) * DYY + NR + 34;
+  stage.innerHTML = '';
+  var svg = mkEl('svg', 'qs rb');
+  svg.setAttribute('viewBox', '0 0 ' + vw + ' ' + vh);
+  svg.setAttribute('width', vw);
+  svg.setAttribute('style', 'width:100%;max-width:' + Math.round(vw * 1.6) + 'px;min-width:' + Math.min(vw, 460) + 'px');
+  svg.setAttribute('role', 'img');
+  view.gE = mkEl('g', '', svg); view.gN = mkEl('g', '', svg);
+  stage.appendChild(svg);
+  view.svg = svg; view.run = s.run; view.nodes = {}; view.edges = {}; view.pos = {}; view.vw = vw;
+}
+function nodeEl(id) {
+  var e = view.nodes[id];
+  if (e) return e;
+  var g = mkEl('g', 'rn gone', view.gN);
+  e = { g: g, c: mkEl('circle', '', g), t: mkEl('text', 'key', g), pill: mkEl('rect', 'pill', g), b: mkEl('text', 'bf', g), r: mkEl('text', 'role', g) };
+  e.c.setAttribute('r', NR);
+  e.t.setAttribute('text-anchor', 'middle'); e.t.setAttribute('y', 5.5);
+  e.pill.setAttribute('x', 12); e.pill.setAttribute('y', -NR - 9); e.pill.setAttribute('width', 18); e.pill.setAttribute('height', 16); e.pill.setAttribute('rx', 8);
+  e.b.setAttribute('x', 21); e.b.setAttribute('y', -NR + 3); e.b.setAttribute('text-anchor', 'middle');
+  e.r.setAttribute('x', -NR - 2); e.r.setAttribute('y', -NR - 2); e.r.setAttribute('text-anchor', 'end');
+  view.nodes[id] = e;
+  return e;
+}
+function edgeEl(key) {
+  var e = view.edges[key];
+  if (e) return e;
+  e = mkEl('line', 'ae gone', view.gE);
+  view.edges[key] = e;
+  return e;
+}
+function applyPos(s) {
+  s.nodes.forEach(function (n) {
+    var p = view.pos[n.id];
+    if (p) nodeEl(n.id).g.setAttribute('transform', 'translate(' + p.x.toFixed(1) + ',' + p.y.toFixed(1) + ')');
+  });
+  s.edges.forEach(function (e) {
+    var a = view.pos[e[0]], b = view.pos[e[1]];
+    if (!a || !b) return;
+    var dx = b.x - a.x, dy = b.y - a.y, len = Math.sqrt(dx * dx + dy * dy) || 1, ux = dx / len, uy = dy / len;
+    var l = edgeEl(e[0] + '-' + e[1]);
+    l.setAttribute('x1', (a.x + ux * NR).toFixed(1)); l.setAttribute('y1', (a.y + uy * NR).toFixed(1));
+    l.setAttribute('x2', (b.x - ux * NR).toFixed(1)); l.setAttribute('y2', (b.y - uy * NR).toFixed(1));
+  });
+}
+function renderTree(s) {
+  ensureSvg(s);
+  var n = s.nodes.length, off = (view.vw - (n - 1) * SPX) / 2, target = {}, from = {}, present = {}, epresent = {};
+  s.nodes.forEach(function (x) { target[x.id] = { x: off + x.rank * SPX, y: TOPY + x.d * DYY }; present[x.id] = 1; });
+  s.nodes.forEach(function (x) {
+    if (view.pos[x.id]) from[x.id] = { x: view.pos[x.id].x, y: view.pos[x.id].y };
+    else {
+      var q = x.par && view.pos[x.par] ? view.pos[x.par] : target[x.id];
+      view.pos[x.id] = { x: q.x, y: q.y }; from[x.id] = { x: q.x, y: q.y };
+    }
+  });
+  var pathSet = {}; s.path.forEach(function (id) { pathSet[id] = 1; });
+  s.nodes.forEach(function (x) {
+    var e = nodeEl(x.id), role = s.roles[x.id] || '';
+    e.g.setAttribute('class', 'rn ' + (x.red ? 'red' : 'blk') + (x.id === s.cur ? ' cur' : '') + (pathSet[x.id] ? ' path' : '') + (s.flash.indexOf(x.id) >= 0 ? ' flash' : '') + (x.id === s.mv ? ' mv' : '') + (x.id === s.newNode ? ' fresh' : ''));
+    e.t.textContent = x.key;
+    e.b.textContent = x.red ? 'R' : 'B';
+    e.r.textContent = role;
+  });
+  Object.keys(view.nodes).forEach(function (id) { if (!present[id]) view.nodes[id].g.setAttribute('class', 'rn gone'); });
+  s.edges.forEach(function (e) {
+    var k = e[0] + '-' + e[1], el = edgeEl(k);
+    epresent[k] = 1;
+    var fresh = s.newEdge && s.newEdge[0] === e[0] && s.newEdge[1] === e[1];
+    el.setAttribute('class', 'ae' + (fresh ? ' chg' : ''));
+  });
+  Object.keys(view.edges).forEach(function (k) { if (!epresent[k]) view.edges[k].setAttribute('class', 'ae gone'); });
+  view.svg.setAttribute('aria-label', 'Red-black tree, keys in order: ' + s.nodes.map(function (x) { return x.key + (x.red ? ' red' : ' black'); }).join(', ') + '.');
+  if (view.raf) { cancelAnimationFrame(view.raf); view.raf = 0; }
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduce) { s.nodes.forEach(function (x) { view.pos[x.id] = target[x.id]; }); applyPos(s); return; }
+  var t0 = null;
+  function frame(t) {
+    if (t0 === null) t0 = t;
+    var k = Math.min(1, (t - t0) / DUR), e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+    s.nodes.forEach(function (x) {
+      view.pos[x.id] = { x: from[x.id].x + (target[x.id].x - from[x.id].x) * e, y: from[x.id].y + (target[x.id].y - from[x.id].y) * e };
+    });
+    applyPos(s);
+    view.raf = k < 1 ? requestAnimationFrame(frame) : 0;
+  }
+  applyPos(s);
+  view.raf = requestAnimationFrame(frame);
+}
+
+function tableHTML(s) {
+  var v = s.vars;
+  function f(x) { return x === undefined || x === null ? 'not set' : String(x); }
+  var rows = [['z', f(v.z)], ['p', f(v.p)], ['g', f(v.g)], ['u', f(v.u)], ['case', f(v.cs)]];
+  return '<li class="pt"><span class="k">operation</span><span class="v">' + esc(s.opNo ? s.op + '  (' + s.opNo + '/' + s.opTotal + ')' : 'not started') + '</span></li>' +
+    rows.map(function (r) {
+      return '<li class="pt' + (s.rows.indexOf(r[0]) >= 0 ? ' hi' : '') + '"><span class="k">' + r[0] + '</span><span class="v' + (r[1] === 'not set' ? ' unset' : '') + '">' + esc(r[1]) + '</span></li>';
+    }).join('');
+}
+
+// Small before/after diagrams. A node is [label, color, left, right]. A string is a subtree.
+var MC = {
+  c1: { name: 'Case 1: red uncle', fix: 'recolor p, u black and g red. Then z = g.',
+        b: ['g', 'B', ['p', 'R', ['z', 'R'], 'T1'], ['u', 'R']], a: ['g', 'R', ['p', 'B', ['z', 'R'], 'T1'], ['u', 'B']] },
+  c2: { name: 'Case 2: black uncle, triangle', fix: 'rotate p away from z. Then go to case 3.',
+        b: ['g', 'B', ['p', 'R', 'T1', ['z', 'R', 'T2', 'T3']], ['u', 'B']], a: ['g', 'B', ['z', 'R', ['p', 'R', 'T1', 'T2'], 'T3'], ['u', 'B']] },
+  c3: { name: 'Case 3: black uncle, line', fix: 'recolor p black, g red. Rotate g.',
+        b: ['g', 'B', ['p', 'R', ['z', 'R', 'T1', 'T2'], 'T3'], ['u', 'B']], a: ['p', 'B', ['z', 'R', 'T1', 'T2'], ['g', 'R', 'T3', ['u', 'B']]] }
+};
+function miniTree(spec, ox) {
+  var items = [], edges = [], rank = 0;
+  (function walk(t, d, par) {
+    var me;
+    if (typeof t === 'string') { me = { label: t, tri: true, r: rank++, d: d }; items.push(me); if (par) edges.push([par, me]); return me; }
+    me = { label: t[0], col: t[1], tri: false, d: d };
+    if (t.length > 2) walk(t[2], d + 1, me);
+    me.r = rank++;
+    items.push(me);
+    if (par) edges.push([par, me]);
+    if (t.length > 3) walk(t[3], d + 1, me);
+    return me;
+  })(spec, 0, null);
+  var out = '', S = 24, DY = 34;
+  edges.forEach(function (e) {
+    out += '<line class="me" x1="' + (ox + e[0].r * S + 12) + '" y1="' + (e[0].d * DY + 14) + '" x2="' + (ox + e[1].r * S + 12) + '" y2="' + (e[1].d * DY + 14 - (e[1].tri ? 4 : 0)) + '"/>';
+  });
+  items.forEach(function (t) {
+    var cx = ox + t.r * S + 12, cy = t.d * DY + 14;
+    if (t.tri) out += '<g class="mt"><polygon points="' + cx + ',' + (cy - 5) + ' ' + (cx - 10) + ',' + (cy + 14) + ' ' + (cx + 10) + ',' + (cy + 14) + '"/><text x="' + cx + '" y="' + (cy + 12) + '" text-anchor="middle">' + t.label + '</text></g>';
+    else out += '<g class="mn ' + (t.col === 'R' ? 'red' : 'blk') + '"><circle cx="' + cx + '" cy="' + cy + '" r="10"/><text x="' + cx + '" y="' + (cy + 4) + '" text-anchor="middle">' + t.label + '</text></g>';
+  });
+  return out;
+}
+function miniCase(id, active) {
+  var c = MC[id];
+  var svg = '<svg viewBox="0 0 330 112" role="img" aria-label="' + esc(c.name) + ': before and after">' + miniTree(c.b, 4) + '<path class="mar" d="M156 46 H178 M172 40 L178 46 L172 52"/>' + miniTree(c.a, 190) + '</svg>';
+  return '<div class="mini' + (active ? ' on' : '') + '"><p class="mh"><b>' + esc(c.name) + '</b></p><p class="mh"><span>' + esc(c.fix) + '</span></p>' + svg + '</div>';
+}
+function formulaHTML(s) {
+  var act = s.caseName, n = s.nodes.length, h = s.height, bh = s.bh, c = s.counts;
+  var bound = n ? Math.floor(2 * Math.log(n + 1) / Math.LN2) : 0;
+  var left = '<div><p class="f-h">The five rules</p>' +
+    '<p class="f-m">1. Every node is red or black.</p>' +
+    '<p class="f-m">2. The root is black.</p>' +
+    '<p class="f-m">3. Every missing child (None) is black.</p>' +
+    '<p class="f-m">4. A red node has no red child.</p>' +
+    '<p class="f-m">5. Every path from a node down to a missing child has the same number of black nodes.</p>' +
+    '<p class="f-note">A new node is red. Red adds no black node to any path, so rule 5 stays true. Only rule 2 (the new node is the root) or rule 4 (its parent is red) can break. fix_insert repairs them.</p>' +
+    '<p class="f-h">The four cases</p>' +
+    '<p class="f-note">z is the red node with the problem. p is its parent. g is its grandparent. u is its uncle. The pictures show the left side. The right side is the mirror image. T1 to T3 are subtrees. They keep their shape.</p>' +
+    '<div class="tblwrap"><table class="jt"><tr><th>Case</th><th>When</th><th>Action</th></tr>' +
+    [['c0', 'Case 0', 'z is the root (or the root is red after case 1)', 'color the root black'],
+     ['c1', 'Case 1', 'p red, u red', 'recolor p, u, g. Then z = g'],
+     ['c2', 'Case 2', 'p red, u black, z and p bend (triangle)', 'rotate p away from z. Then case 3'],
+     ['c3', 'Case 3', 'p red, u black, z and p in a line', 'recolor p, g. Rotate g']].map(function (r) {
+      var on = act === r[0] ? ' class="last"' : '';
+      return '<tr><td' + on + '>' + r[1] + '</td><td' + on + ' style="text-align:left">' + r[2] + '</td><td' + on + ' style="text-align:left">' + r[3] + '</td></tr>';
+    }).join('') + '</table></div>' +
+    '<p class="f-note">If the parent is black, nothing is wrong. The loop ends at once.</p>' +
+    '<div class="minis">' + ['c1', 'c2', 'c3'].map(function (id) { return miniCase(id, act === id); }).join('') + '</div></div>';
+  var right = '<div><p class="f-h">Why the height stays small</p>' +
+    '<p class="f-m">bh = black nodes on any path from the root down</p>' +
+    '<p class="f-m">n ≥ 2^bh − 1</p>' +
+    '<p class="f-m">h ≤ 2 · bh</p>' +
+    '<p class="f-m">h ≤ 2 · log2(n + 1)</p>' +
+    '<p class="f-note">A tree with black height bh has at least 2^bh − 1 nodes. By rule 4, at most every second node on a path is red, so the height is at most 2 · bh. A red-black tree is less strict than an AVL tree. The AVL bound is about 1.44 · log2(n + 2). The red-black bound is 2 · log2(n + 1).</p>' +
+    '<p class="f-h">Cost of an insert</p>' +
+    '<p class="f-m">search and attach = O(h) = O(log n)</p>' +
+    '<p class="f-m">case 1 repeats at most once for each level: O(log n) recolorings</p>' +
+    '<p class="f-m">cases 2 and 3 happen at most once: at most 2 rotations</p>' +
+    '<p class="f-note">After case 2 and case 3, the loop ends. Case 1 only recolors, and it moves the problem two levels up.</p>' +
+    '<p class="f-h">With this run</p><div class="tblwrap"><table class="jt">' +
+    '<tr><th>Item</th><th>Value</th></tr>' +
+    '<tr><td style="text-align:left">Nodes n</td><td>' + n + '</td></tr>' +
+    '<tr><td style="text-align:left">Height h</td><td>' + h + '</td></tr>' +
+    '<tr><td style="text-align:left">Black height bh</td><td>' + bh + '</td></tr>' +
+    '<tr><td style="text-align:left">Bound 2 · log2(n + 1), rounded down</td><td>' + bound + '</td></tr>' +
+    '<tr><td class="last" style="text-align:left">Case 1, case 2, case 3 so far</td><td class="last">' + c.c1 + ', ' + c.c2 + ', ' + c.c3 + '</td></tr>' +
+    '<tr><td class="last" style="text-align:left">Red root made black (case 0)</td><td class="last">' + c.c0 + '</td></tr>' +
+    '<tr><td class="last" style="text-align:left">Rotations so far</td><td class="last">' + c.rot + '</td></tr>' +
+    '<tr><td class="last" style="text-align:left">Color changes so far</td><td class="last">' + c.recolor + '</td></tr>' +
+    '</table></div></div>';
+  return left + right;
+}
+
+var TRACE = {
+  code: CODE,
+  hl: function (s) {
+    var ci = s.indexOf('#'), code = ci >= 0 ? s.slice(0, ci) : s, cm = ci >= 0 ? s.slice(ci) : '';
+    var h = esc(code)
+      .replace(/\b(class|def|return|if|elif|else|while|is|not|None|and)\b/g, '<span class="kw">$1</span>')
+      .replace(/\b(rotate_left|rotate_right|fix_insert|insert|Node|Tree)\b/g, '<span class="fn">$1</span>')
+      .replace(/\b(self)\b/g, '<span class="ty">$1</span>');
+    return h + (cm ? '<span class="cm">' + esc(cm) + '</span>' : '');
+  },
+  simulate: function () {
+    var st = simulate(+document.getElementById('selInput').value, document.getElementById('selDetail').value);
+    runId++;
+    st.forEach(function (s) { s.run = runId; });
+    return st;
+  },
+  render: function (s) {
+    renderTree(s);
+    document.getElementById('ptable').innerHTML = tableHTML(s);
+    document.getElementById('formula').innerHTML = formulaHTML(s);
+  }
+};
+
+</script>
+<script src="../../assets/player.js"></script>
+</body>
+</html>

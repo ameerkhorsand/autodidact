@@ -1,0 +1,775 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AVL Tree Rotations</title>
+<link rel="stylesheet" href="../../assets/base.css">
+<link rel="stylesheet" href="../../assets/trace.css">
+<script src="../../assets/theme.js"></script>
+<style>
+.p-code .code { max-height: 560px; overflow: auto; }
+.av { transition: opacity 0.3s; }
+.av.gone { opacity: 0; pointer-events: none; }
+.av circle { fill: var(--paper); stroke: var(--ink); stroke-width: 1.8; }
+.av text.key { font: 700 15px var(--font-mono); fill: var(--ink); }
+.av .pill { fill: var(--paper); stroke: var(--line); stroke-width: 1.2; }
+.av .bf { font: 700 11px var(--font-mono); fill: var(--ink); }
+.av .ht { font: 500 11px var(--font-mono); fill: var(--muted); }
+.av .role { font: 700 14px var(--font-mono); fill: var(--accent); }
+.av.out .pill { fill: var(--accent); stroke: var(--accent); }
+.av.out .bf { fill: var(--on-accent); }
+.av .pill.stale { stroke-dasharray: 3 2; stroke: var(--muted); fill: transparent; }
+.av .bf.stale, .av .ht.stale { fill: var(--muted); }
+.av.path circle { stroke: var(--accent); stroke-width: 2.2; }
+.av.cur circle { stroke: var(--accent); stroke-width: 3.4; }
+.av.bad circle { stroke: var(--accent); stroke-width: 3.4; fill: var(--hl); }
+.av.r-z circle { fill: var(--accent); stroke: var(--accent); }
+.av.r-z text.key { fill: var(--on-accent); }
+.av.r-z .role { fill: var(--accent); }
+.av.r-y circle { fill: var(--le); }
+.av.r-x circle { fill: var(--gt); }
+.av.mv circle { stroke: var(--accent); stroke-width: 3; stroke-dasharray: 4 3; }
+.av.rem circle { stroke: var(--accent); stroke-width: 3.4; stroke-dasharray: 5 3; fill: transparent; }
+.ae { stroke: var(--ink); stroke-width: 1.8; stroke-linecap: round; transition: opacity 0.3s; }
+.ae.chg { stroke: var(--accent); stroke-width: 3.2; }
+.ae.gone { opacity: 0; }
+.minis { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin: 0 0 14px; }
+.mini { border: 1px solid var(--line); border-radius: 6px; padding: 8px 12px 6px; }
+.mini.on { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+.mini .mh { display: flex; justify-content: space-between; gap: 10px; margin: 0 0 2px; font: 12px var(--font-mono); color: var(--muted); }
+.mini .mh b { color: var(--ink); font-size: 14px; }
+.mini svg { display: block; width: 100%; height: auto; }
+.me { stroke: var(--ink); stroke-width: 1.4; }
+.mn circle { fill: var(--paper); stroke: var(--ink); stroke-width: 1.4; }
+.mn text { font: 700 11px var(--font-mono); fill: var(--ink); }
+.mn.r-z circle { fill: var(--accent); stroke: var(--accent); }
+.mn.r-z text { fill: var(--on-accent); }
+.mn.r-y circle { fill: var(--le); }
+.mn.r-x circle { fill: var(--gt); }
+.mt polygon { fill: var(--paper); stroke: var(--muted); stroke-width: 1.2; }
+.mt text { font: 500 9px var(--font-mono); fill: var(--muted); }
+.mar { fill: none; stroke: var(--muted); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.lg-pill { display: inline-block; min-width: 26px; padding: 0 5px; border: 1.2px solid var(--line); border-radius: 8px; font: 700 11px/16px var(--font-mono); text-align: center; color: var(--ink); }
+.lg-pill.out { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.lg-pill.stale { border-style: dashed; border-color: var(--muted); color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { .av, .ae { transition: none; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <a class="back" href="index.html">&larr; Data Structures and Algorithms</a>
+  <header>
+    <div class="intro">
+      <h1>AVL tree rotations</h1>
+      <p>An AVL tree is a BST where, for every node, the heights of the two subtrees differ by at most 1. After each insert or delete, the code walks back up the path. It fixes the first node that is out of balance with one rotation, or two. Choose an example. Watch the nodes slide as the links change.</p>
+    </div>
+    <div class="picks"><div class="pick"><label class="label" for="selInput">Example</label><select id="selInput" class="param"><option value="0" selected>LL: one right rotation (insert 5)</option><option value="1">RR: one left rotation (insert 80)</option><option value="2">LR: double rotation (insert 40)</option><option value="3">RL: double rotation (insert 60)</option><option value="4">Deep tree: rotation far from the root</option><option value="5">Build from sorted keys 1 to 10</option><option value="6">Build a tree: all four cases</option><option value="7">Delete: a double rotation</option><option value="8">Delete: balance(y) = 0, one rotation</option><option value="9">Delete: node with two children</option><option value="10">Delete: rotations on two levels</option><option value="11">Mixed run: inserts and deletes, all cases</option></select></div><div class="pick"><label class="label" for="selDetail">Detail</label><select id="selDetail" class="param"><option value="short" selected>Key steps only</option><option value="full">Every comparison and height update</option></select></div></div>
+  </header>
+
+  <section class="panel controls" aria-label="Playback controls">
+    <button type="button" class="btn" id="reset">Reset</button>
+    <button type="button" class="btn" id="prev">Back</button>
+    <button type="button" class="btn primary" id="play">Play</button>
+    <button type="button" class="btn" id="next">Next</button>
+    <input type="range" class="scrub" id="scrub" min="0" max="1" value="0" aria-label="Step">
+    <span class="stepno" id="stepno">Step 0 of 0</span>
+    <label class="spd"><span class="label">Speed</span>
+      <select id="speed">
+        <option value="2600">Slow</option>
+        <option value="1600" selected>Normal</option>
+        <option value="800">Fast</option>
+      </select>
+    </label>
+  </section>
+
+  <div class="layout">
+    <section class="panel p-code">
+      <h2>Code (Python)</h2>
+      <ol class="code" id="code" aria-label="Source code"></ol>
+    </section>
+
+    <section class="panel p-diagram">
+      <h2>Diagram</h2>
+      <div class="stage" id="stage"></div>
+      <div class="legend"><span><span class="sw piv"></span>z: lowest node out of balance</span><span><span class="sw le"></span>y: taller child of z</span><span><span class="sw gt"></span>x: taller child of y</span><span><svg viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="3 3"/></svg>Subtree that changes parent, or node being removed</span><span><span class="lg-pill">+1</span>balance factor (filled when out of range)</span><span><span class="lg-pill stale">+1</span>height not updated yet</span><span>h2 = height of the node</span></div>
+    </section>
+
+    <section class="panel p-table">
+      <h2>Pointers</h2>
+      <ul class="ptable" id="ptable" aria-label="Pointer values"></ul>
+      <h2 class="sub">Call stack</h2>
+      <ul class="frames" id="frames" aria-label="Call stack, newest call first"></ul>
+    </section>
+
+    <section class="panel p-note">
+      <div class="note-box">
+        <div class="eyebrow"><span id="title">Start</span><span id="lineref"></span></div>
+        <p class="note" id="note" aria-live="polite"></p>
+      </div>
+    </section>
+
+    <section class="panel p-formula">
+      <h2>Formula</h2>
+      <div class="formula" id="formula"></div>
+    </section>
+  </div>
+</div>
+
+<script>
+//SIM-START
+function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+var CODE = [
+  'class Node:',
+  '    def __init__(self, key):',
+  '        self.key = key',
+  '        self.left = None',
+  '        self.right = None',
+  '        self.height = 1',
+  '',
+  'def height(n):',
+  '    return n.height if n else 0',
+  '',
+  'def update(n):',
+  '    n.height = 1 + max(height(n.left), height(n.right))',
+  '',
+  'def balance(n):',
+  '    return height(n.left) - height(n.right)',
+  '',
+  'def rotate_right(n):',
+  '    c = n.left',
+  '    n.left = c.right',
+  '    c.right = n',
+  '    update(n)',
+  '    update(c)',
+  '    return c',
+  '',
+  'def rotate_left(n):',
+  '    c = n.right',
+  '    n.right = c.left',
+  '    c.left = n',
+  '    update(n)',
+  '    update(c)',
+  '    return c',
+  '',
+  'def rebalance(n):',
+  '    update(n)',
+  '    b = balance(n)',
+  '    if b > 1:                         # left side too tall',
+  '        if balance(n.left) < 0:       # case LR',
+  '            n.left = rotate_left(n.left)',
+  '        return rotate_right(n)        # case LL, or LR step 2',
+  '    if b < -1:                        # right side too tall',
+  '        if balance(n.right) > 0:      # case RL',
+  '            n.right = rotate_right(n.right)',
+  '        return rotate_left(n)         # case RR, or RL step 2',
+  '    return n',
+  '',
+  'def insert(n, key):',
+  '    if n is None:',
+  '        return Node(key)',
+  '    if key < n.key:',
+  '        n.left = insert(n.left, key)',
+  '    elif key > n.key:',
+  '        n.right = insert(n.right, key)',
+  '    return rebalance(n)',
+  '',
+  'def delete(n, key):',
+  '    if n is None:',
+  '        return None',
+  '    if key < n.key:',
+  '        n.left = delete(n.left, key)',
+  '    elif key > n.key:',
+  '        n.right = delete(n.right, key)',
+  '    else:',
+  '        if n.left is None:',
+  '            return n.right',
+  '        if n.right is None:',
+  '            return n.left',
+  '        s = n.right',
+  '        while s.left:',
+  '            s = s.left',
+  '        n.key = s.key',
+  '        n.right = delete(n.right, s.key)',
+  '    return rebalance(n)'
+];
+// Line numbers (1-based) found by text, so the trace cannot drift from the code.
+function ln(text, nth) {
+  var seen = 0;
+  for (var k = 0; k < CODE.length; k++) {
+    var t = CODE[k].replace(/\s+#.*$/, '').trim();
+    if (t === text) { seen++; if (seen === (nth || 1)) return k + 1; }
+  }
+  throw new Error('line not found: ' + text);
+}
+var L = {
+  rrDef: ln('def rotate_right(n):'), rrC: ln('c = n.left'), rrMove: ln('n.left = c.right'), rrUp: ln('c.right = n'),
+  rrUpN: ln('update(n)', 1), rrUpC: ln('update(c)', 1), rrRet: ln('return c', 1),
+  rlDef: ln('def rotate_left(n):'), rlC: ln('c = n.right'), rlMove: ln('n.right = c.left'), rlUp: ln('c.left = n'),
+  rlUpN: ln('update(n)', 2), rlUpC: ln('update(c)', 2), rlRet: ln('return c', 2),
+  rbDef: ln('def rebalance(n):'), rbUpd: ln('update(n)', 3), rbB: ln('b = balance(n)'),
+  rbGt: ln('if b > 1:'), rbGtChk: ln('if balance(n.left) < 0:'), rbGtLR: ln('n.left = rotate_left(n.left)'), rbGtRet: ln('return rotate_right(n)'),
+  rbLt: ln('if b < -1:'), rbLtChk: ln('if balance(n.right) > 0:'), rbLtRL: ln('n.right = rotate_right(n.right)'), rbLtRet: ln('return rotate_left(n)'),
+  rbOk: ln('return n'),
+  inDef: ln('def insert(n, key):'), inNone: ln('if n is None:', 1), inNew: ln('return Node(key)'),
+  inLt: ln('if key < n.key:', 1), inL: ln('n.left = insert(n.left, key)'), inGt: ln('elif key > n.key:', 1), inR: ln('n.right = insert(n.right, key)'),
+  inRb: ln('return rebalance(n)', 1),
+  deDef: ln('def delete(n, key):'), deNone: ln('if n is None:', 2), deRetNone: ln('return None'),
+  deLt: ln('if key < n.key:', 2), deL: ln('n.left = delete(n.left, key)'), deGt: ln('elif key > n.key:', 2), deR: ln('n.right = delete(n.right, key)'),
+  deElse: ln('else:'), deNoL: ln('if n.left is None:'), deRetR: ln('return n.right'), deNoR: ln('if n.right is None:'), deRetL: ln('return n.left'),
+  deS: ln('s = n.right'), deWhile: ln('while s.left:'), deSL: ln('s = s.left'), deKey: ln('n.key = s.key'), deSucc: ln('n.right = delete(n.right, s.key)'),
+  deRb: ln('return rebalance(n)', 2)
+};
+
+// Each example has a setup (built without steps) and a list of traced operations.
+var PRESETS = [
+  { name: 'LL: one right rotation (insert 5)', setup: [40, 20, 60, 10, 30], ops: [['i', 5]] },
+  { name: 'RR: one left rotation (insert 80)', setup: [40, 20, 60, 50, 70], ops: [['i', 80]] },
+  { name: 'LR: double rotation (insert 40)', setup: [50, 20, 70, 10, 30], ops: [['i', 40]] },
+  { name: 'RL: double rotation (insert 60)', setup: [50, 30, 80, 70, 90], ops: [['i', 60]] },
+  { name: 'Deep tree: rotation far from the root', setup: [50, 30, 70, 20, 40, 60, 80, 35], ops: [['i', 37]] },
+  { name: 'Build from sorted keys 1 to 10', setup: [], ops: [['i', 1], ['i', 2], ['i', 3], ['i', 4], ['i', 5], ['i', 6], ['i', 7], ['i', 8], ['i', 9], ['i', 10]] },
+  { name: 'Build a tree: all four cases', setup: [], ops: [['i', 35], ['i', 85], ['i', 80], ['i', 50], ['i', 75], ['i', 20], ['i', 30], ['i', 95]] },
+  { name: 'Delete: a double rotation', setup: [100, 120, 5, 40, 60, 70, 80, 65], ops: [['d', 40]] },
+  { name: 'Delete: balance(y) = 0, one rotation', setup: [60, 35, 100, 40, 85, 65, 70, 115], ops: [['d', 35]] },
+  { name: 'Delete: node with two children', setup: [50, 20, 90, 60, 45, 75, 120, 10], ops: [['d', 50]] },
+  { name: 'Delete: rotations on two levels', setup: [40, 25, 55, 15, 35, 50, 60, 10, 20, 30, 45, 5], ops: [['d', 60]] },
+  { name: 'Mixed run: inserts and deletes, all cases', setup: [145, 15, 35, 25, 40, 80, 110, 20], ops: [['d', 15], ['i', 130], ['d', 40], ['d', 25], ['d', 130], ['i', 95], ['d', 20]] }
+];
+
+function simulate(pi, detail) {
+  var P = PRESETS[pi];
+  var steps = [], root = null, nid = 0, silent = true, stack = [];
+  var counts = { LL: 0, RR: 0, LR: 0, RL: 0, rot: 0 };
+  var opLabel = 'none', opNo = 0, opTotal = P.ops.length, plainRoot = null, plainH = 0, ret = null, lastCase = null;
+
+  function mk(key) { return { id: ++nid, key: key, h: 1, left: null, right: null }; }
+  function hh(n) { return n ? n.h : 0; }
+  function upd(n) { n.h = 1 + Math.max(hh(n.left), hh(n.right)); }
+  function bal(n) { return hh(n.left) - hh(n.right); }
+  function getL(k) { return k.p ? k.p[k.side] : root; }
+  function setL(k, v) { if (k.p) k.p[k.side] = v; else root = v; }
+  function sg(b) { return b > 0 ? '+' + b : (b < 0 ? '−' + (-b) : '0'); }
+  function plural(k, w) { return k + ' ' + w + (k === 1 ? '' : 's'); }
+
+  // Plain BST, used only to show how tall the tree would be without rotations.
+  function pIns(n, k) { if (!n) return { k: k, l: null, r: null }; if (k < n.k) n.l = pIns(n.l, k); else if (k > n.k) n.r = pIns(n.r, k); return n; }
+  function pDel(n, k) {
+    if (!n) return null;
+    if (k < n.k) n.l = pDel(n.l, k); else if (k > n.k) n.r = pDel(n.r, k);
+    else {
+      if (!n.l) return n.r;
+      if (!n.r) return n.l;
+      var s = n.r; while (s.l) s = s.l;
+      n.k = s.k; n.r = pDel(n.r, s.k);
+    }
+    return n;
+  }
+  function pH(n) { return n ? 1 + Math.max(pH(n.l), pH(n.r)) : 0; }
+
+  function layout() {
+    var rank = 0, nodes = [], edges = [];
+    (function walk(n, d, parent) {
+      if (!n) return;
+      walk(n.left, d + 1, n);
+      var hl = hh(n.left), hr = hh(n.right);
+      nodes.push({ id: n.id, key: n.key, h: n.h, bf: hl - hr, rank: rank++, d: d, par: parent ? parent.id : 0 });
+      walk(n.right, d + 1, n);
+      if (n.left) edges.push([n.id, n.left.id]);
+      if (n.right) edges.push([n.id, n.right.id]);
+    })(root, 0, null);
+    return { nodes: nodes, edges: edges };
+  }
+
+  var cur = null, vars = null;
+  function snap(o) {
+    if (silent) return;
+    if (o.full && detail === 'short') return;
+    if (o.short && detail === 'full') return;
+    var lay = layout(), top = stack.length ? stack[stack.length - 1] : null, path = [];
+    stack.forEach(function (f) { if (f.nid) path.push(f.nid); });
+    var maxD = 0;
+    lay.nodes.forEach(function (x) { if (x.d + 1 > maxD) maxD = x.d + 1; });
+    steps.push({
+      lines: o.lines || [], title: o.title, note: o.note,
+      nodes: lay.nodes, edges: lay.edges, height: maxD,
+      cur: o.cur || 0, roles: o.roles || {}, mv: o.mv || 0, bad: o.bad || 0, rem: o.rem || 0,
+      stale: o.stale || [], newEdge: o.newEdge || null, newNode: o.newNode || 0, path: path,
+      stack: stack.map(function (f) { return f.txt; }),
+      vars: top ? JSON.parse(JSON.stringify(top.vars)) : {}, rows: o.rows || [], ret: ret,
+      caseName: o.caseName || null, counts: JSON.parse(JSON.stringify(counts)),
+      op: opLabel, opNo: opNo, opTotal: opTotal, plainH: plainH, done: !!o.done
+    });
+  }
+  function push(txt, vars, nodeId) { var f = { txt: txt, vars: vars, nid: nodeId || 0 }; stack.push(f); return f; }
+  function pop() { stack.pop(); }
+
+  // ---- rotation ----
+  function rotate(dir, n, link, callLine, roles, tagNote) {
+    var right = dir === 'right', fn = right ? 'rotate_right' : 'rotate_left';
+    var c = right ? n.left : n.right, T = right ? c.right : c.left;
+    var side = right ? 'left' : 'right', other = right ? 'right' : 'left';
+    var S = right ? { def: L.rrDef, c: L.rrC, mv: L.rrMove, up: L.rrUp, un: L.rrUpN, uc: L.rrUpC, rt: L.rrRet } : { def: L.rlDef, c: L.rlC, mv: L.rlMove, up: L.rlUp, un: L.rlUpN, uc: L.rlUpC, rt: L.rlRet };
+    var f = push(fn + '(n=' + n.key + ')', { fn: fn, n: n.key, c: c.key }, 0);
+    counts.rot++;
+    var Tdesc = T ? 'The ' + other + ' subtree of ' + c.key + ' has root ' + T.key + '. It must change its parent.' : 'Node ' + c.key + ' has no ' + other + ' subtree, so no subtree has to move.';
+    snap({ lines: [callLine, S.def, S.c], title: 'Rotate ' + dir + ' at ' + n.key, cur: n.id, roles: roles, mv: T ? T.id : 0, rows: ['running', 'n', 'c'],
+      note: fn + '(' + n.key + ') starts. c = n.' + side + ' = ' + c.key + '. Node ' + c.key + ' goes up. Node ' + n.key + ' goes down, to the ' + other + ' of ' + c.key + '. ' + Tdesc + (tagNote ? ' ' + tagNote : '') });
+    n[side] = T;
+    c[other] = n;
+    setL(link, c);
+    snap({ lines: [S.mv, S.up], title: 'Change the links', cur: c.id, roles: roles, mv: T ? T.id : 0, stale: [n.id, c.id], newEdge: [c.id, n.id], rows: ['running', 'n', 'c'],
+      note: 'n.' + side + ' = c.' + other + ': ' + (T ? 'subtree ' + T.key + ' becomes the ' + side + ' child of ' + n.key : 'the ' + side + ' child of ' + n.key + ' is now empty') +
+        '. c.' + other + ' = n: ' + n.key + ' becomes the ' + other + ' child of ' + c.key + '. The parent now links to ' + c.key + '. The order of the keys left to right does not change. The heights of ' + n.key + ' and ' + c.key + ' are old (dashed).' });
+    var oh = n.h; upd(n);
+    snap({ lines: [S.un], title: 'Update height of ' + n.key, cur: n.id, roles: roles, stale: [c.id], rows: ['running', 'n'],
+      note: 'update(n): ' + n.key + ' is now lower. Its height is 1 + max(' + hh(n.left) + ', ' + hh(n.right) + ') = ' + n.h + (oh === n.h ? ' (no change)' : ' (was ' + oh + ')') + '. Update the lower node first. The upper node needs its new height.' });
+    oh = c.h; upd(c);
+    snap({ lines: [S.uc], title: 'Update height of ' + c.key, cur: c.id, roles: roles, rows: ['running', 'c'],
+      note: 'update(c): the height of ' + c.key + ' is 1 + max(' + hh(c.left) + ', ' + hh(c.right) + ') = ' + c.h + (oh === c.h ? ' (no change)' : ' (was ' + oh + ')') + '. Both heights are correct now.' });
+    ret = c.key;
+    snap({ lines: [S.rt], title: 'Return ' + c.key, cur: c.id, roles: roles, rows: ['returns'],
+      note: 'return c. The call returns ' + c.key + ', the new root of this subtree.' });
+    pop();
+    return c;
+  }
+
+  // ---- rebalance ----
+  function rebalance(n, link, kind) {
+    var f = push('rebalance(n=' + n.key + ')', { fn: 'rebalance', n: n.key }, n.id);
+    var oldH = n.h, hl = hh(n.left), hr = hh(n.right), nh = 1 + Math.max(hl, hr), b = hl - hr;
+    n.h = nh;
+    f.vars.hl = hl; f.vars.hr = hr;
+    snap({ full: true, lines: [L.rbDef, L.rbUpd], title: 'Update height of ' + n.key, cur: n.id, rows: ['running', 'n', 'hl', 'hr'],
+      note: 'rebalance(' + n.key + ') starts. update(n): height = 1 + max(' + hl + ', ' + hr + ') = ' + nh + (oldH === nh ? ' (no change)' : ' (was ' + oldH + ')') + '.' });
+    f.vars.b = b;
+    var imbal = Math.abs(b) > 1;
+    snap({ full: true, lines: [L.rbB], title: 'Balance factor ' + sg(b), cur: n.id, bad: imbal ? n.id : 0, rows: ['b'],
+      note: 'b = balance(n) = height(left) − height(right) = ' + hl + ' − ' + hr + ' = ' + sg(b) + '. ' + (imbal ? 'This is outside −1 to +1.' : 'This is inside −1 to +1. The node is balanced.') });
+    if (!imbal) {
+      ret = n.key;
+      snap({ full: true, lines: [L.rbOk], title: 'Balanced: no rotation', cur: n.id, rows: ['returns'],
+        note: 'Both checks are false. return n. The call returns ' + n.key + ' with no change.' });
+      pop();
+      return n;
+    }
+    var heavy = b > 1 ? 'left' : 'right', y = n[heavy], by = bal(y), caseName, x;
+    if (b > 1) { caseName = by < 0 ? 'LR' : 'LL'; x = by < 0 ? y.right : y.left; }
+    else { caseName = by > 0 ? 'RL' : 'RR'; x = by > 0 ? y.left : y.right; }
+    var roles = {}; roles[n.id] = 'z'; roles[y.id] = 'y'; roles[x.id] = 'x';
+    f.vars.cs = caseName;
+    snap({ lines: [b > 1 ? L.rbGt : L.rbLt], title: 'Out of balance at ' + n.key, cur: n.id, bad: n.id, roles: roles, rows: ['b'],
+      note: 'balance(' + n.key + ') = ' + sg(b) + '. The ' + heavy + ' side is too tall by 2. Call this node z. Its taller child ' + y.key + ' is y. Now find which grandchild x is the tall one.' });
+    counts[caseName]++;
+    var why = {
+      LL: 'balance(' + y.key + ') = ' + sg(by) + (by === 0 ? '. It is not less than 0, so the test is false. (A zero can happen after a delete, never after an insert.)' : '. It is not less than 0, so the test is false.') +
+          ' The tall grandchild x = ' + x.key + ' is on the left of y, on the same side as y. This is case LL. One right rotation at z fixes it.' + (by === 0 ? ' When balance(y) = 0 the subtree keeps its old height after the rotation, so nodes higher up need no change.' : ''),
+      RR: 'balance(' + y.key + ') = ' + sg(by) + (by === 0 ? '. It is not more than 0, so the test is false. (A zero can happen after a delete, never after an insert.)' : '. It is not more than 0, so the test is false.') +
+          ' The tall grandchild x = ' + x.key + ' is on the right of y, on the same side as y. This is case RR. One left rotation at z fixes it.' + (by === 0 ? ' When balance(y) = 0 the subtree keeps its old height after the rotation, so nodes higher up need no change.' : ''),
+      LR: 'balance(' + y.key + ') = ' + sg(by) + '. It is less than 0, so the test is true. The tall grandchild x = ' + x.key + ' is on the right of y. The bend is left, then right. This is case LR. A single right rotation at z would not help. First rotate left at y, to make x the left child of z. Then rotate right at z.',
+      RL: 'balance(' + y.key + ') = ' + sg(by) + '. It is more than 0, so the test is true. The tall grandchild x = ' + x.key + ' is on the left of y. The bend is right, then left. This is case RL. A single left rotation at z would not help. First rotate right at y, to make x the right child of z. Then rotate left at z.'
+    }[caseName];
+    lastCase = caseName; f.vars.cs = caseName;
+    snap({ lines: [b > 1 ? L.rbGtChk : L.rbLtChk], title: 'Case ' + caseName, cur: y.id, bad: n.id, roles: roles, caseName: caseName, rows: ['b', 'case'], note: why });
+    var res;
+    if (caseName === 'LL') res = rotate('right', n, link, L.rbGtRet, roles);
+    else if (caseName === 'RR') res = rotate('left', n, link, L.rbLtRet, roles);
+    else if (caseName === 'LR') {
+      var y2 = rotate('left', y, { p: n, side: 'left' }, L.rbGtLR, roles);
+      n.left = y2;
+      snap({ lines: [L.rbGtLR], title: 'LR, step 1 done', cur: n.id, roles: roles, caseName: caseName, rows: ['case'],
+        note: 'n.left = ' + y2.key + '. The left side of ' + n.key + ' now leans left only. The bend is gone. The case is now LL.' });
+      res = rotate('right', n, link, L.rbGtRet, roles);
+    } else {
+      var y3 = rotate('right', y, { p: n, side: 'right' }, L.rbLtRL, roles);
+      n.right = y3;
+      snap({ lines: [L.rbLtRL], title: 'RL, step 1 done', cur: n.id, roles: roles, caseName: caseName, rows: ['case'],
+        note: 'n.right = ' + y3.key + '. The right side of ' + n.key + ' now leans right only. The bend is gone. The case is now RR.' });
+      res = rotate('left', n, link, L.rbLtRet, roles);
+    }
+    ret = res.key;
+    snap({ lines: [b > 1 ? L.rbGtRet : L.rbLtRet], title: 'Subtree is balanced', cur: res.id, caseName: caseName, rows: ['returns'],
+      note: 'rebalance returns ' + res.key + '. The subtree has height ' + res.h + '. It had height ' + oldH + ' before this ' + kind + '. ' +
+        (res.h === oldH ? 'The height is the same, so the nodes above keep their heights.' : 'The height is smaller by 1, so a node above may now be out of balance. The code checks it on the way up.') });
+    pop();
+    return res;
+  }
+
+  // ---- insert ----
+  function insert(n, key, link) {
+    var f = push('insert(n=' + (n ? n.key : 'None') + ', key=' + key + ')', { fn: 'insert', n: n ? n.key : 'None', key: key }, n ? n.id : 0);
+    if (!n) {
+      var nn = mk(key);
+      setL(link, nn);
+      ret = key;
+      snap({ lines: [L.inNone, L.inNew], title: 'Place the new node', cur: nn.id, newNode: nn.id, newEdge: link.p ? [link.p.id, nn.id] : null, rows: ['running', 'n', 'returns'],
+        note: 'n is None. This is the free place for ' + key + '. Node(' + key + ') is made with height 1. The call returns it.' + (link.p ? ' The parent links to it.' : ' It is the root.') });
+      pop();
+      return nn;
+    }
+    var go = key < n.key ? 'left' : (key > n.key ? 'right' : null);
+    snap({ full: true, lines: go === 'left' ? [L.inNone, L.inLt, L.inL] : (go === 'right' ? [L.inNone, L.inLt, L.inGt, L.inR] : [L.inNone, L.inLt, L.inGt]),
+      title: 'Compare ' + key + ' with ' + n.key, cur: n.id, rows: ['running', 'n', 'key'],
+      note: go ? key + (go === 'left' ? ' < ' : ' > ') + n.key + '. Go ' + go + '.' : 'The key ' + key + ' is already in the tree. Nothing changes.' });
+    if (go) n[go] = insert(n[go], key, { p: n, side: go });
+    var r = rebalance(n, link, 'insert');
+    setL(link, r);
+    pop();
+    return r;
+  }
+
+  // ---- delete ----
+  function del(n, key, link) {
+    var f = push('delete(n=' + (n ? n.key : 'None') + ', key=' + key + ')', { fn: 'delete', n: n ? n.key : 'None', key: key }, n ? n.id : 0);
+    if (!n) {
+      ret = null;
+      snap({ lines: [L.deNone, L.deRetNone], title: 'Key not found', rows: ['running', 'n'], note: 'n is None. The key ' + key + ' is not in the tree. The call returns None.' });
+      pop();
+      return null;
+    }
+    var go = key < n.key ? 'left' : (key > n.key ? 'right' : null);
+    snap({ full: true, lines: go === 'left' ? [L.deNone, L.deLt, L.deL] : (go === 'right' ? [L.deNone, L.deLt, L.deGt, L.deR] : [L.deNone, L.deLt, L.deGt, L.deElse]),
+      title: 'Compare ' + key + ' with ' + n.key, cur: n.id, rows: ['running', 'n', 'key'],
+      note: go ? key + (go === 'left' ? ' < ' : ' > ') + n.key + '. Go ' + go + '.' : key + ' = ' + n.key + '. This is the node to delete.' });
+    if (go) {
+      n[go] = del(n[go], key, { p: n, side: go });
+    } else {
+      if (!n.left || !n.right) {
+        var child = n.left ? n.left : n.right;
+        snap({ lines: !n.left ? [L.deElse, L.deNoL, L.deRetR] : [L.deElse, L.deNoL, L.deNoR, L.deRetL], title: 'Remove ' + n.key, cur: n.id, rem: n.id, rows: ['running', 'n'],
+          note: !n.left ? (n.right ? 'n.left is None. The call returns n.right, which is ' + n.right.key + '. Node ' + n.key + ' leaves the tree and ' + n.right.key + ' takes its place.'
+                                   : 'n.left is None. The call returns n.right, which is None. Node ' + n.key + ' is a leaf. It leaves the tree.')
+                        : 'n.right is None. The call returns n.left, which is ' + n.left.key + '. Node ' + n.key + ' leaves the tree and ' + n.left.key + ' takes its place.' });
+        setL(link, child);
+        ret = child ? child.key : null;
+        pop();
+        return child;
+      }
+      var s = n.right, roles = {}, sPath = [s];
+      roles[n.id] = 'n';
+      snap({ full: true, lines: [L.deElse, L.deNoL, L.deNoR, L.deS], title: 'Two children', cur: n.id, rem: 0, roles: (function () { var r = {}; r[n.id] = 'n'; r[s.id] = 's'; return r; })(), rows: ['running', 'n'],
+        note: 'Node ' + n.key + ' has two children. The code takes the in-order successor: the smallest key in the right subtree. s = n.right = ' + s.key + '.' });
+      while (s.left) {
+        s = s.left; sPath.push(s);
+        snap({ full: true, lines: [L.deWhile, L.deSL], title: 'Go left', cur: s.id, roles: (function () { var r = {}; r[n.id] = 'n'; r[s.id] = 's'; return r; })(), rows: ['running'],
+          note: 's.left exists, so s = s.left = ' + s.key + '.' });
+      }
+      roles = {}; roles[n.id] = 'n'; roles[s.id] = 's';
+      snap({ lines: [L.deS, L.deWhile], title: 'Successor is ' + s.key, cur: s.id, roles: roles, rows: ['running'],
+        note: 'Node ' + n.key + ' has two children. Go right once, then left as far as possible: ' + sPath.map(function (q) { return q.key; }).join(' → ') + '. The successor s is ' + s.key + '. It has no left child.' });
+      var old = n.key;
+      n.key = s.key;
+      snap({ lines: [L.deKey], title: 'Copy ' + s.key + ' into the node', cur: n.id, roles: roles, rows: ['running', 'n'],
+        note: 'n.key = s.key. The node that held ' + old + ' now holds ' + s.key + '. Two nodes show ' + s.key + ' for now. The old successor node is next to go.' });
+      n.right = del(n.right, s.key, { p: n, side: 'right' });
+      snap({ full: true, lines: [L.deSucc], title: 'Successor removed', cur: n.id, rows: ['running', 'n'],
+        note: 'The call n.right = delete(n.right, s.key) is done. The old successor node is gone. Now the code goes to rebalance(n).' });
+    }
+    var r = rebalance(n, link, 'delete');
+    setL(link, r);
+    pop();
+    return r;
+  }
+
+  // ---- run ----
+  function endOp(label, before) {
+    plainH = pH(plainRoot);
+    var lay = layout(), nn = lay.nodes.length, h = 0;
+    lay.nodes.forEach(function (x) { if (x.d + 1 > h) h = x.d + 1; });
+    var made = counts.rot - before.rot;
+    var cases = ['LL', 'RR', 'LR', 'RL'].filter(function (c) { return counts[c] - before[c] > 0; }).map(function (c) { return counts[c] - before[c] + ' × ' + c; });
+    ret = null;
+    snap({ title: 'Done: ' + label, lines: [], done: true, rows: [],
+      note: 'The tree has ' + plural(nn, 'node') + ' and height ' + h + '. ' + (made ? 'This operation used ' + plural(made, 'rotation call') + (cases.length ? ' (case ' + cases.join(', ') + ')' : '') + '. ' : 'This operation used no rotation. ') +
+        'A plain BST with the same operations has height ' + plainH + '.' });
+  }
+  P.setup.forEach(function (k) { root = insert(root, k, { p: null }); plainRoot = pIns(plainRoot, k); });
+  plainH = pH(plainRoot);
+  counts = { LL: 0, RR: 0, LR: 0, RL: 0, rot: 0 };
+  silent = false;
+  snap({ title: 'Start', lines: [], rows: [],
+    note: (P.setup.length ? 'The AVL tree already holds ' + P.setup.join(', ') + '. Every node is balanced. ' : 'The tree is empty. ') +
+      'The run has ' + plural(P.ops.length, 'operation') + ': ' + P.ops.map(function (o) { return (o[0] === 'i' ? 'insert ' : 'delete ') + o[1]; }).join(', ') + '. Press Next.' });
+  P.ops.forEach(function (op, idx) {
+    var label = (op[0] === 'i' ? 'insert ' : 'delete ') + op[1], before = JSON.parse(JSON.stringify(counts));
+    opNo = idx + 1; opLabel = label; ret = null;
+    var kind = op[0], key = op[1];
+    var walk = root, pathKeys = [], dirs = [];
+    while (walk && walk.key !== key) { pathKeys.push(walk.key); dirs.push(key < walk.key ? 'left' : 'right'); walk = key < walk.key ? walk.left : walk.right; }
+    snap({ short: true, title: 'Operation ' + opNo + ' of ' + P.ops.length + ': ' + label, lines: [kind === 'i' ? L.inDef : L.deDef], rows: [],
+      note: pathKeys.length ? 'The search path for ' + key + ': ' + pathKeys.map(function (k, i) { return k + ' (' + dirs[i] + ')'; }).join(', ') + (walk ? ', then ' + key + ' itself.' : ', then a free place.') : (walk ? 'The root is ' + key + '.' : 'The tree is empty. The new node becomes the root.') });
+    snap({ full: true, title: 'Operation ' + opNo + ' of ' + P.ops.length + ': ' + label, lines: [kind === 'i' ? L.inDef : L.deDef], rows: [],
+      note: kind === 'i' ? 'insert(root, ' + key + ') starts. The code goes down like a plain BST. Then it fixes the balance on the way back up.' : 'delete(root, ' + key + ') starts. The code goes down like a plain BST delete. Then it fixes the balance on the way back up.' });
+    if (kind === 'i') { root = insert(root, key, { p: null }); plainRoot = pIns(plainRoot, key); }
+    else { root = del(root, key, { p: null }); plainRoot = pDel(plainRoot, key); }
+    endOp(label, before);
+  });
+  var maxN = 0, maxD = 0;
+  steps.forEach(function (s) { if (s.nodes.length > maxN) maxN = s.nodes.length; if (s.height > maxD) maxD = s.height; });
+  steps.forEach(function (s) { s.maxN = maxN; s.maxD = maxD; });
+  return steps;
+}
+//SIM-END
+
+// ---------- drawing ----------
+var SPX = 46, DYY = 64, NR = 17, TOPY = 44, MX = 40, DUR = 520;
+var runId = 0;
+var view = { run: -1, svg: null, nodes: {}, edges: {}, pos: {}, raf: 0, ids: [] };
+var SVGNS = 'http://www.w3.org/2000/svg';
+function mkEl(tag, cls, parent) {
+  var e = document.createElementNS(SVGNS, tag);
+  if (cls) e.setAttribute('class', cls);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function dims(s) {
+  var vw = Math.max(400, (s.maxN - 1) * SPX + 2 * MX + 24), vh = TOPY + (Math.max(s.maxD, 1) - 1) * DYY + NR + 34;
+  return { vw: vw, vh: vh };
+}
+function ensureSvg(s) {
+  var stage = document.getElementById('stage');
+  if (view.run === s.run && view.svg && stage.contains(view.svg)) return;
+  if (view.raf) { cancelAnimationFrame(view.raf); view.raf = 0; }
+  var d = dims(s);
+  stage.innerHTML = '';
+  var svg = mkEl('svg', 'qs avl');
+  svg.setAttribute('viewBox', '0 0 ' + d.vw + ' ' + d.vh);
+  svg.setAttribute('width', d.vw);
+  svg.setAttribute('style', 'width:100%;max-width:' + Math.round(d.vw * 1.6) + 'px;min-width:' + Math.min(d.vw, 460) + 'px');
+  svg.setAttribute('role', 'img');
+  view.gE = mkEl('g', '', svg); view.gN = mkEl('g', '', svg);
+  stage.appendChild(svg);
+  view.svg = svg; view.run = s.run; view.nodes = {}; view.edges = {}; view.pos = {}; view.vw = d.vw;
+}
+function nodeEl(id) {
+  var e = view.nodes[id];
+  if (e) return e;
+  var g = mkEl('g', 'av gone', view.gN);
+  e = { g: g, c: mkEl('circle', '', g), t: mkEl('text', 'key', g), pill: mkEl('rect', 'pill', g), b: mkEl('text', 'bf', g), h: mkEl('text', 'ht', g), r: mkEl('text', 'role', g) };
+  e.c.setAttribute('r', NR);
+  e.t.setAttribute('text-anchor', 'middle'); e.t.setAttribute('y', 5.5);
+  e.pill.setAttribute('x', 9); e.pill.setAttribute('y', -NR - 9); e.pill.setAttribute('width', 26); e.pill.setAttribute('height', 16); e.pill.setAttribute('rx', 8);
+  e.b.setAttribute('x', 22); e.b.setAttribute('y', -NR + 3); e.b.setAttribute('text-anchor', 'middle');
+  e.h.setAttribute('x', -NR - 3); e.h.setAttribute('y', -NR + 1); e.h.setAttribute('text-anchor', 'end');
+  e.r.setAttribute('x', 0); e.r.setAttribute('y', -NR - 6); e.r.setAttribute('text-anchor', 'middle');
+  view.nodes[id] = e;
+  return e;
+}
+function edgeEl(key) {
+  var e = view.edges[key];
+  if (e) return e;
+  e = mkEl('line', 'ae gone', view.gE);
+  view.edges[key] = e;
+  return e;
+}
+function sgn(b) { return b > 0 ? '+' + b : (b < 0 ? '−' + (-b) : '0'); }
+function applyPos(s) {
+  s.nodes.forEach(function (n) {
+    var p = view.pos[n.id];
+    if (p) nodeEl(n.id).g.setAttribute('transform', 'translate(' + p.x.toFixed(1) + ',' + p.y.toFixed(1) + ')');
+  });
+  s.edges.forEach(function (e) {
+    var a = view.pos[e[0]], b = view.pos[e[1]];
+    if (!a || !b) return;
+    var dx = b.x - a.x, dy = b.y - a.y, len = Math.sqrt(dx * dx + dy * dy) || 1, ux = dx / len, uy = dy / len;
+    var l = edgeEl(e[0] + '-' + e[1]);
+    l.setAttribute('x1', (a.x + ux * NR).toFixed(1)); l.setAttribute('y1', (a.y + uy * NR).toFixed(1));
+    l.setAttribute('x2', (b.x - ux * NR).toFixed(1)); l.setAttribute('y2', (b.y - uy * NR).toFixed(1));
+  });
+}
+function renderTree(s) {
+  ensureSvg(s);
+  var n = s.nodes.length, off = (view.vw - (n - 1) * SPX) / 2, target = {}, from = {}, present = {}, epresent = {};
+  s.nodes.forEach(function (x) { target[x.id] = { x: off + x.rank * SPX, y: TOPY + x.d * DYY }; present[x.id] = 1; });
+  s.nodes.forEach(function (x) {
+    if (view.pos[x.id]) from[x.id] = { x: view.pos[x.id].x, y: view.pos[x.id].y };
+    else {
+      var q = x.par && view.pos[x.par] ? view.pos[x.par] : target[x.id];
+      view.pos[x.id] = { x: q.x, y: q.y }; from[x.id] = { x: q.x, y: q.y };
+    }
+  });
+  var pathSet = {}; s.path.forEach(function (id) { pathSet[id] = 1; });
+  s.nodes.forEach(function (x) {
+    var e = nodeEl(x.id), role = s.roles[x.id] || '';
+    var cls = 'av' + (x.id === s.cur ? ' cur' : '') + (pathSet[x.id] ? ' path' : '') + (x.id === s.bad ? ' bad' : '') + (x.id === s.mv ? ' mv' : '') + (x.id === s.rem ? ' rem' : '') +
+      (role === 'z' || role === 'y' || role === 'x' ? ' r-' + role : '') + (Math.abs(x.bf) > 1 ? ' out' : '') + (x.id === s.newNode ? ' fresh' : '');
+    e.g.setAttribute('class', cls);
+    e.t.textContent = x.key;
+    var stale = s.stale.indexOf(x.id) >= 0;
+    e.pill.setAttribute('class', 'pill' + (stale ? ' stale' : ''));
+    e.b.setAttribute('class', 'bf' + (stale ? ' stale' : ''));
+    e.b.textContent = sgn(x.bf);
+    e.h.textContent = 'h' + x.h;
+    e.h.setAttribute('class', 'ht' + (stale ? ' stale' : ''));
+    e.r.textContent = role;
+  });
+  Object.keys(view.nodes).forEach(function (id) { if (!present[id]) view.nodes[id].g.setAttribute('class', 'av gone'); });
+  s.edges.forEach(function (e) {
+    var k = e[0] + '-' + e[1], el = edgeEl(k);
+    epresent[k] = 1;
+    var fresh = s.newEdge && s.newEdge[0] === e[0] && s.newEdge[1] === e[1];
+    el.setAttribute('class', 'ae' + (fresh ? ' chg' : ''));
+  });
+  Object.keys(view.edges).forEach(function (k) { if (!epresent[k]) view.edges[k].setAttribute('class', 'ae gone'); });
+  var label = 'Tree with keys in order: ' + s.nodes.map(function (x) { return x.key; }).join(', ') + '. Height ' + s.height + '.';
+  view.svg.setAttribute('aria-label', label);
+  if (view.raf) { cancelAnimationFrame(view.raf); view.raf = 0; }
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduce) { s.nodes.forEach(function (x) { view.pos[x.id] = target[x.id]; }); applyPos(s); return; }
+  var t0 = null;
+  function frame(t) {
+    if (t0 === null) t0 = t;
+    var k = Math.min(1, (t - t0) / DUR), e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+    s.nodes.forEach(function (x) {
+      view.pos[x.id] = { x: from[x.id].x + (target[x.id].x - from[x.id].x) * e, y: from[x.id].y + (target[x.id].y - from[x.id].y) * e };
+    });
+    applyPos(s);
+    view.raf = k < 1 ? requestAnimationFrame(frame) : 0;
+  }
+  applyPos(s);
+  view.raf = requestAnimationFrame(frame);
+}
+
+// ---------- tables and formulas ----------
+function tableHTML(s) {
+  var v = s.vars, rows = [
+    ['running', v.fn ? v.fn : 'not set'],
+    ['n', v.n !== undefined ? String(v.n) : 'not set'],
+    ['key', v.key !== undefined ? String(v.key) : 'not set'],
+    ['c', v.c !== undefined ? String(v.c) : 'not set'],
+    ['hl', v.hl !== undefined ? String(v.hl) : 'not set'],
+    ['hr', v.hr !== undefined ? String(v.hr) : 'not set'],
+    ['b', v.b !== undefined ? sgn(v.b) : 'not set'],
+    ['case', v.cs ? v.cs : 'not set'],
+    ['returns', s.ret === null || s.ret === undefined ? 'not set' : String(s.ret)]
+  ];
+  var names = { hl: 'height(n.left)', hr: 'height(n.right)', b: 'b = balance(n)' };
+  return '<li class="pt"><span class="k">operation</span><span class="v">' + esc(s.opTotal ? (s.opNo ? s.op + '  (' + s.opNo + '/' + s.opTotal + ')' : 'not started') : 'none') + '</span></li>' +
+    rows.map(function (r) {
+      var unset = r[1] === 'not set';
+      return '<li class="pt' + (s.rows.indexOf(r[0]) >= 0 ? ' hi' : '') + '"><span class="k">' + esc(names[r[0]] || r[0]) + '</span><span class="v' + (unset ? ' unset' : '') + '">' + esc(r[1]) + '</span></li>';
+    }).join('');
+}
+function framesHTML(s) {
+  if (!s.stack.length) return '<li class="empty">Empty. ' + (s.done ? 'All calls have returned.' : 'No call is running.') + '</li>';
+  return s.stack.slice().reverse().map(function (t, idx) {
+    return '<li class="frame' + (idx === 0 ? ' top' : '') + '"><div class="fh"><span>' + esc(t) + '</span><span>depth ' + (s.stack.length - idx) + '</span></div></li>';
+  }).join('');
+}
+
+// Small diagrams of the four cases. T1 to T4 are subtrees.
+var CASES = {
+  LL: { b: ['z', ['y', ['x', 'T1', 'T2'], 'T3'], 'T4'], a: ['y', ['x', 'T1', 'T2'], ['z', 'T3', 'T4']], fix: 'rotate_right(z)' },
+  RR: { b: ['z', 'T1', ['y', 'T2', ['x', 'T3', 'T4']]], a: ['y', ['z', 'T1', 'T2'], ['x', 'T3', 'T4']], fix: 'rotate_left(z)' },
+  LR: { b: ['z', ['y', 'T1', ['x', 'T2', 'T3']], 'T4'], a: ['x', ['y', 'T1', 'T2'], ['z', 'T3', 'T4']], fix: 'rotate_left(y), then rotate_right(z)' },
+  RL: { b: ['z', 'T1', ['y', ['x', 'T2', 'T3'], 'T4']], a: ['x', ['z', 'T1', 'T2'], ['y', 'T3', 'T4']], fix: 'rotate_right(y), then rotate_left(z)' }
+};
+function miniTree(spec, ox, W) {
+  var items = [], edges = [], rank = 0;
+  (function walk(t, d, par) {
+    var me;
+    if (typeof t === 'string') { me = { label: t, tri: true, r: rank++, d: d }; items.push(me); if (par) edges.push([par, me]); return me; }
+    me = { label: t[0], tri: false, d: d };
+    var l = walk(t[1], d + 1, me);
+    me.r = rank++;
+    items.push(me);
+    if (par) edges.push([par, me]);
+    walk(t[2], d + 1, me);
+    return me;
+  })(spec, 0, null);
+  var out = '', S = 22, DY = 34;
+  edges.forEach(function (e) {
+    out += '<line class="me" x1="' + (ox + e[0].r * S + 11) + '" y1="' + (e[0].d * DY + 14) + '" x2="' + (ox + e[1].r * S + 11) + '" y2="' + (e[1].d * DY + 14 - (e[1].tri ? 4 : 0)) + '"/>';
+  });
+  items.forEach(function (t) {
+    var cx = ox + t.r * S + 11, cy = t.d * DY + 14;
+    if (t.tri) out += '<g class="mt"><polygon points="' + cx + ',' + (cy - 5) + ' ' + (cx - 10) + ',' + (cy + 14) + ' ' + (cx + 10) + ',' + (cy + 14) + '"/><text x="' + cx + '" y="' + (cy + 12) + '" text-anchor="middle">' + t.label + '</text></g>';
+    else out += '<g class="mn r-' + t.label + '"><circle cx="' + cx + '" cy="' + cy + '" r="10"/><text x="' + cx + '" y="' + (cy + 4) + '" text-anchor="middle">' + t.label + '</text></g>';
+  });
+  return out;
+}
+function miniCase(name, active) {
+  var c = CASES[name];
+  var svg = '<svg viewBox="0 0 352 136" role="img" aria-label="Case ' + name + ': before and after">' + miniTree(c.b, 4) +
+    '<path class="mar" d="M168 56 H190 M184 50 L190 56 L184 62"/>' + miniTree(c.a, 204) + '</svg>';
+  return '<div class="mini' + (active ? ' on' : '') + '"><p class="mh"><b>' + name + '</b><span>' + esc(c.fix) + '</span></p>' + svg + '</div>';
+}
+function formulaHTML(s) {
+  var act = s.caseName, N = [0, 1], i;
+  for (i = 2; i <= 9; i++) N.push(N[i - 1] + N[i - 2] + 1);
+  var n = s.nodes.length, h = s.height;
+  var minH = n ? Math.ceil(Math.log(n + 1) / Math.LN2) : 0;
+  var maxH = n ? Math.floor(1.4405 * Math.log(n + 2) / Math.LN2 - 0.3277) : 0;
+  var cases = ['LL', 'RR', 'LR', 'RL'];
+  var left = '<div><p class="f-h">Balance factor</p>' +
+    '<p class="f-m">height(None) = 0</p>' +
+    '<p class="f-m">height(n) = 1 + max(height(n.left), height(n.right))</p>' +
+    '<p class="f-m">balance(n) = height(n.left) − height(n.right)</p>' +
+    '<p class="f-note">A tree is an AVL tree when balance(n) is −1, 0, or +1 for every node n. A plain BST insert or delete can break this for the nodes on one path. The code repairs the path from the bottom up.</p>' +
+    '<p class="f-h">The four cases</p>' +
+    '<p class="f-note">z is the lowest node on the path with balance +2 or −2. y is its taller child. x is the taller child of y. T1 to T4 are subtrees. They keep their shape. Only their parent changes.</p>' +
+    '<div class="minis">' + cases.map(function (c) { return miniCase(c, act === c); }).join('') + '</div>' +
+    '<div class="tblwrap"><table class="jt"><tr><th>Case</th><th>balance(z)</th><th>balance(y)</th><th>Fix</th></tr>' +
+    [['LL', '+2', '+1 or 0', 'one right rotation at z'], ['LR', '+2', '−1', 'left at y, then right at z'], ['RR', '−2', '−1 or 0', 'one left rotation at z'], ['RL', '−2', '+1', 'right at y, then left at z']].map(function (r) {
+      var on = act === r[0];
+      return '<tr><td' + (on ? ' class="last"' : '') + '>' + r[0] + '</td><td' + (on ? ' class="last"' : '') + '>' + r[1] + '</td><td' + (on ? ' class="last"' : '') + '>' + r[2] + '</td><td' + (on ? ' class="last"' : '') + ' style="text-align:left">' + r[3] + '</td></tr>';
+    }).join('') + '</table></div>' +
+    '<p class="f-note">balance(y) = 0 cannot happen after an insert. It can happen after a delete. Then one single rotation is correct. A double rotation would be wrong here.</p></div>';
+  var tbl = '<tr><th>Height h</th>' + [1, 2, 3, 4, 5, 6, 7, 8].map(function (k) { return '<td' + (k === h ? ' class="last"' : '') + '>' + k + '</td>'; }).join('') + '</tr>' +
+    '<tr><th>Fewest nodes N(h)</th>' + [1, 2, 3, 4, 5, 6, 7, 8].map(function (k) { return '<td' + (k === h ? ' class="last"' : '') + '>' + N[k] + '</td>'; }).join('') + '</tr>';
+  var c = s.counts;
+  var right = '<div><p class="f-h">Why the height stays small</p>' +
+    '<p class="f-m">N(h) = N(h − 1) + N(h − 2) + 1</p>' +
+    '<p class="f-m">N(0) = 0, N(1) = 1</p>' +
+    '<p class="f-note">N(h) is the fewest nodes an AVL tree of height h can have. The thinnest tree has one subtree of height h − 1 and one of height h − 2. The numbers grow like the Fibonacci numbers.</p>' +
+    '<div class="tblwrap"><table class="jt">' + tbl + '</table></div>' +
+    '<p class="f-m">log2(n + 1) ≤ h &lt; 1.4405 · log2(n + 2) − 0.3277</p>' +
+    '<p class="f-note">So search, insert, and delete cost O(log n). A plain BST can reach height n.</p>' +
+    '<p class="f-h">Cost of the repair</p>' +
+    '<p class="f-m">one rotation = O(1) (three link changes)</p>' +
+    '<p class="f-m">insert: at most 1 case (single or double rotation)</p>' +
+    '<p class="f-m">delete: up to O(log n) cases, one per level</p>' +
+    '<p class="f-note">After an insert, the first fix gives the subtree its old height. So nodes above it need no rotation. After a delete, the fix can make the subtree shorter by 1. Then a node above can be out of balance too. The code checks every node on the way up.</p>' +
+    '<p class="f-h">With this run</p><div class="tblwrap"><table class="jt">' +
+    '<tr><th>Item</th><th>Value</th></tr>' +
+    '<tr><td style="text-align:left">Nodes n now</td><td>' + n + '</td></tr>' +
+    '<tr><td style="text-align:left">Height now</td><td>' + h + '</td></tr>' +
+    '<tr><td style="text-align:left">Smallest height for n nodes: ⌈log2(n + 1)⌉</td><td>' + minH + '</td></tr>' +
+    '<tr><td style="text-align:left">Largest AVL height for n nodes</td><td>' + maxH + '</td></tr>' +
+    '<tr><td style="text-align:left">Height of a plain BST, same operations</td><td>' + s.plainH + '</td></tr>' +
+    '<tr><td class="last" style="text-align:left">Cases so far: LL, RR, LR, RL</td><td class="last">' + c.LL + ', ' + c.RR + ', ' + c.LR + ', ' + c.RL + '</td></tr>' +
+    '<tr><td class="last" style="text-align:left">Rotation calls so far</td><td class="last">' + c.rot + ' (a double case uses 2)</td></tr>' +
+    '</table></div></div>';
+  return left + right;
+}
+
+var TRACE = {
+  code: CODE,
+  hl: function (s) {
+    var ci = s.indexOf('#'), code = ci >= 0 ? s.slice(0, ci) : s, cm = ci >= 0 ? s.slice(ci) : '';
+    var h = esc(code)
+      .replace(/\b(class|def|return|if|elif|else|while|is|not|None|and|or)\b/g, '<span class="kw">$1</span>')
+      .replace(/\b(height|update|balance|rotate_right|rotate_left|rebalance|insert|delete|Node|max)\b(?=\()/g, '<span class="fn">$1</span>')
+      .replace(/\b(self)\b/g, '<span class="ty">$1</span>');
+    return h + (cm ? '<span class="cm">' + esc(cm) + '</span>' : '');
+  },
+  simulate: function () {
+    var st = simulate(+document.getElementById('selInput').value, document.getElementById('selDetail').value);
+    runId++;
+    st.forEach(function (s) { s.run = runId; });
+    return st;
+  },
+  render: function (s) {
+    renderTree(s);
+    document.getElementById('ptable').innerHTML = tableHTML(s);
+    document.getElementById('frames').innerHTML = framesHTML(s);
+    document.getElementById('formula').innerHTML = formulaHTML(s);
+  }
+};
+
+</script>
+<script src="../../assets/player.js"></script>
+</body>
+</html>
