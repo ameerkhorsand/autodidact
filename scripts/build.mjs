@@ -33,12 +33,11 @@ function head(title, cssHref, assetsPrefix) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
 ${GENERATED}
 <title>${esc(title)}</title>
-<link rel="icon" href="${assetsPrefix}assets/favicon.ico" sizes="32x32">
-<link rel="icon" href="${assetsPrefix}assets/favicon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="${assetsPrefix}assets/apple-touch-icon.png">
 <link rel="stylesheet" href="${assetsPrefix}assets/base.css">
+<link rel="stylesheet" href="${assetsPrefix}assets/theme.css">
 <link rel="stylesheet" href="${assetsPrefix}assets/${cssHref}">
 <script src="${assetsPrefix}assets/theme.js"></script>
 </head>
@@ -89,16 +88,9 @@ for (const s of manifest.subjects) {
     if (!existsSync(p)) { fail(`Trace file is missing: subjects/${s.id}/${t.file}`); continue; }
     const html = readFileSync(p, 'utf8');
     const where = `subjects/${s.id}/${t.file}`;
-    for (const need of ['assets/base.css', 'assets/trace.css', 'assets/player.js']) {
+    for (const need of ['assets/base.css', 'assets/theme.css', 'assets/trace.css', 'assets/theme.js', 'assets/player.js']) {
       if (!html.includes(need)) fail(`${where} does not load ${need}.`);
     }
-    for (const icon of ['assets/favicon.ico', 'assets/favicon.svg', 'assets/apple-touch-icon.png']) {
-      if (!html.includes(icon)) fail(`${where} does not link ${icon}. Copy the three icon <link> lines from another trace page into the <head>.`);
-    }
-    // theme.js must be a plain script in the <head>, so the theme is set before the page draws (no flash).
-    const themeTag = html.search(/<script src="(?:\.\.\/)+assets\/theme\.js"><\/script>/);
-    if (themeTag < 0) fail(`${where} does not load assets/theme.js. Add this line in the <head>, after the style sheets: <script src="../../assets/theme.js"></script>`);
-    else if (themeTag > html.indexOf('</head>')) fail(`${where} loads assets/theme.js after the <head>. Move it into the <head>, or the page can flash the wrong theme.`);
     if (/fonts\.googleapis\.com|fonts\.gstatic\.com/.test(html)) fail(`${where} loads fonts from the network. Use assets/base.css.`);
     if (!html.includes('//SIM-START') || !html.includes('//SIM-END')) fail(`${where} has no //SIM-START and //SIM-END markers.`);
     if (!html.includes('window.TRACE') && !/var TRACE\s*=/.test(html)) fail(`${where} does not define TRACE.`);
@@ -119,9 +111,6 @@ if (existsSync(join(ROOT, 'subjects'))) {
     if (f.isDirectory() && !subjectsById.has(f.name)) fail(`Folder subjects/${f.name} is not in manifest.json.`);
   }
 }
-
-// Every page loads base.css, and base.css must load theme.css (the one file of colors).
-if (!/@import\s+url\(\s*['"]?theme\.css/.test(readFileSync(join(ROOT, 'assets/base.css'), 'utf8'))) fail('assets/base.css must import theme.css.');
 
 // ---------- generated files ----------
 const out = new Map(); // path -> text
@@ -208,7 +197,7 @@ for (const s of manifest.subjects) {
     <p>${esc(s.description)}</p>
   </header>
 
-${searchBox('Search all subjects and topics')}
+${searchBox('Search all subjects and algorithms. Typos are fine.')}
 `;
   let sections;
   if (!s.traces.length) {

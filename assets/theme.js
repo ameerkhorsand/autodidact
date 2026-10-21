@@ -1,60 +1,50 @@
-// Theme for every page. Load it in the <head>, as a plain script (no defer, no async), after the style sheets:
-//   <script src="../../assets/theme.js"></script>
-// It runs before the page draws, so there is no flash of the wrong theme. It does three things:
-//   1. It reads the saved choice. With no saved choice, it follows the system setting.
-//   2. It sets data-theme="light" or "dark" on <html>. assets/theme.css turns that into the colors.
-//   3. When the page is ready, it adds the toggle button.
-// The choice is saved in localStorage. If the browser blocks storage, the toggle still works for the page.
+// Theme: Auto (follows the system), Light, or Dark. The button on every page changes it.
+// Load this file in <head>, before the page draws. Then the page never flashes the wrong theme.
+// The choice is saved in the browser. A browser can block storage. The code still works then.
 (function () {
   var KEY = 'autodidact-theme';
+  var ORDER = ['auto', 'light', 'dark'];
+  var LABEL = { auto: 'Auto', light: 'Light', dark: 'Dark' };
+  var ICON = {
+    auto: '<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M10 3 A7 7 0 0 1 10 17 Z" fill="currentColor"/></svg>',
+    light: '<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="3.6" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M10 2.2v2.2M10 15.6v2.2M2.2 10h2.2M15.6 10h2.2M4.5 4.5l1.6 1.6M13.9 13.9l1.6 1.6M4.5 15.5l1.6-1.6M13.9 6.1l1.6-1.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
+    dark: '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M16.5 11.6A6.8 6.8 0 0 1 8.4 3.5a6.8 6.8 0 1 0 8.1 8.1Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>'
+  };
   var root = document.documentElement;
-  var query = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
-  var button = null;
 
-  function saved() {
-    try {
-      var v = localStorage.getItem(KEY);
-      return v === 'light' || v === 'dark' ? v : null;
-    } catch (e) { return null; }
+  function read() {
+    try { var v = window.localStorage.getItem(KEY); return v === 'light' || v === 'dark' ? v : 'auto'; } catch (e) { return 'auto'; }
   }
-  function save(v) { try { localStorage.setItem(KEY, v); } catch (e) { /* storage is blocked: keep the choice in the page only */ } }
-  function system() { return query && query.matches ? 'dark' : 'light'; }
-  function current() { return root.getAttribute('data-theme') === 'dark' ? 'dark' : 'light'; }
-
-  function apply(theme) {
-    root.setAttribute('data-theme', theme);
-    if (button) {
-      button.setAttribute('aria-pressed', String(theme === 'dark'));
-      button.title = theme === 'dark' ? 'Switch to light mode' : 'Switch to night mode';
-    }
+  function save(mode) {
+    try { if (mode === 'auto') window.localStorage.removeItem(KEY); else window.localStorage.setItem(KEY, mode); } catch (e) { /* storage is blocked */ }
   }
-
-  apply(saved() || system());
-
-  // Follow a change of the system setting, and a change made in another tab, unless the reader chose a theme.
-  function follow() { apply(saved() || system()); }
-  if (query) {
-    if (query.addEventListener) query.addEventListener('change', follow);
-    else if (query.addListener) query.addListener(follow);
+  var mode = read();
+  function apply() {
+    if (mode === 'auto') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', mode);
   }
-  window.addEventListener('storage', function (e) { if (e.key === KEY || e.key === null) follow(); });
+  apply();
 
   function addButton() {
-    button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'theme-toggle';
-    button.setAttribute('aria-label', 'Night mode');
-    button.innerHTML =
-      '<svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4 8.5 8.5 0 1 0 20 14.5Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>' +
-      '<svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
-    button.addEventListener('click', function () {
-      var next = current() === 'dark' ? 'light' : 'dark';
-      save(next);
-      apply(next);
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'theme-toggle';
+    function paint() {
+      var next = ORDER[(ORDER.indexOf(mode) + 1) % ORDER.length];
+      b.innerHTML = ICON[mode];
+      b.setAttribute('data-mode', mode);
+      b.title = 'Theme: ' + LABEL[mode];
+      b.setAttribute('aria-label', 'Theme: ' + LABEL[mode] + '. Switch to ' + LABEL[next] + '.');
+    }
+    b.addEventListener('click', function () {
+      mode = ORDER[(ORDER.indexOf(mode) + 1) % ORDER.length];
+      save(mode); apply(); paint();
     });
-    document.body.appendChild(button);
-    apply(current());
+    // Another tab or page changed the theme.
+    window.addEventListener('storage', function (e) {
+      if (e.key === KEY || e.key === null) { mode = read(); apply(); paint(); }
+    });
+    paint();
+    document.body.appendChild(b);
   }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', addButton);
-  else addButton();
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', addButton); else addButton();
 })();

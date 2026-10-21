@@ -1,9 +1,4 @@
-/* Layout: grid-paper page. Code and pointer table on the left. Node diagram and narration on the right. */
-:root {
-  --font-display: 'Bricolage Grotesque', 'Instrument Sans', system-ui, sans-serif;
-  --font-body: 'Instrument Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
-}
+/* Layout: grid-paper page. Code and pointer table on the left. Node diagram and narration on the right. Colors are in theme.css. Fonts are in base.css. */
 
 * { box-sizing: border-box; }
 body {

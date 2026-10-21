@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Build-Max-Heap</title>
+<link rel="stylesheet" href="../../assets/base.css">
+<link rel="stylesheet" href="../../assets/theme.css">
+<link rel="stylesheet" href="../../assets/trace.css">
+<script src="../../assets/theme.js"></script>
+<style>
+/* Heap pages. The tree and the array share the same state classes. Colors come from theme.css. */
+.hpe { stroke: var(--ink); stroke-width: 1.4; }
+.hpe.on { stroke: var(--accent); stroke-width: 3; }
+.hp circle { fill: var(--paper); stroke: var(--ink); stroke-width: 1.8; transition: fill 0.3s; }
+.hc rect { fill: var(--paper); stroke: var(--ink); stroke-width: 1.6; transition: fill 0.3s; }
+.hp text.v, .hc text.v { font: 700 15px var(--font-mono); fill: var(--ink); }
+svg text.ix { font: 500 11px var(--font-mono); fill: var(--muted); }
+svg text.alb { font: 500 12px var(--font-mono); fill: var(--muted); }
+.hp.ok circle, .hc.ok rect { fill: var(--le); }
+.hp.lg circle, .hc.lg rect { fill: var(--gt); stroke: var(--accent); stroke-width: 2.4; }
+.hp.cmp circle, .hc.cmp rect { stroke: var(--accent); stroke-width: 3; stroke-dasharray: 5 3; }
+.hp.cur circle, .hc.cur rect { stroke: var(--accent); stroke-width: 3.4; stroke-dasharray: none; }
+.hp.swp circle, .hc.swp rect { fill: var(--accent); stroke: var(--accent); stroke-width: 3; stroke-dasharray: none; }
+.hp.swp text.v, .hc.swp text.v { fill: var(--on-accent); }
+.sw.hok { background: var(--le); }
+.sw.hcur { border: 3px solid var(--accent); }
+.sw.hcmp { border: 2.5px dashed var(--accent); }
+.sw.hlg { background: var(--gt); border-color: var(--accent); }
+.sw.hswp { background: var(--accent); border-color: var(--accent); }
+@media (prefers-reduced-motion: reduce) { .hp circle, .hc rect { transition: none; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <a class="back" href="index.html">&larr; Data Structures and Algorithms</a>
+  <header>
+    <div class="intro">
+      <h1>Build-Max-Heap</h1>
+      <p>Build-Max-Heap turns the array 5, 3, 17, 10, 84, 19, 6, 22, 9 into a max-heap. The nodes 5 to 9 are leaves, and a leaf is already a max-heap. The loop calls Max-Heapify on the other nodes, from node 4 up to node 1. So both subtrees of a node are max-heaps before the node is fixed. Step through the run and watch the call stack. The array uses the positions 1 to 9. The children of node i are 2i and 2i + 1.</p>
+    </div>
+  </header>
+
+  <section class="panel controls" aria-label="Playback controls">
+    <button type="button" class="btn" id="reset">Reset</button>
+    <button type="button" class="btn" id="prev">Back</button>
+    <button type="button" class="btn primary" id="play">Play</button>
+    <button type="button" class="btn" id="next">Next</button>
+    <input type="range" class="scrub" id="scrub" min="0" max="1" value="0" aria-label="Step">
+    <span class="stepno" id="stepno">Step 0 of 0</span>
+    <label class="spd"><span class="label">Speed</span>
+      <select id="speed">
+        <option value="2600">Slow</option>
+        <option value="1600" selected>Normal</option>
+        <option value="800">Fast</option>
+      </select>
+    </label>
+  </section>
+
+  <div class="layout">
+    <section class="panel p-code">
+      <h2>Code</h2>
+      <ol class="code" id="code" aria-label="Source code"></ol>
+    </section>
+
+    <section class="panel p-diagram">
+      <h2>Diagram</h2>
+      <div class="stage" id="stage"></div>
+      <div class="legend"><span><span class="sw hok"></span>Root of a max-heap</span><span><span class="sw hcur"></span>Node i</span><span><span class="sw hcmp"></span>Child being compared</span><span><span class="sw hlg"></span>Largest so far</span><span><span class="sw hswp"></span>Just swapped</span></div>
+    </section>
+
+    <section class="panel p-table">
+      <h2>Variables</h2>
+      <ul class="ptable" id="ptable" aria-label="Variable values"></ul>
+      <h2 class="sub">Call stack</h2>
+      <ul class="frames" id="frames" aria-label="Call stack, newest call first"></ul>
+    </section>
+
+    <section class="panel p-note">
+      <div class="note-box">
+        <div class="eyebrow"><span id="title">Start</span><span id="lineref"></span></div>
+        <p class="note" id="note" aria-live="polite"></p>
+      </div>
+    </section>
+
+    <section class="panel p-formula">
+      <h2>Formula</h2>
+      <div class="formula" id="formula"></div>
+    </section>
+  </div>
+</div>
+
+<script>
+//SIM-START
+function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+// The example. Positions are 1 to n, and position 0 is not used.
+// The parent of node i is i / 2. The children of node i are 2i and 2i + 1.
+var EXAMPLE = [5, 3, 17, 10, 84, 19, 6, 22, 9];
+
+// The height of node i is the number of edges on the longest path down to a leaf: floor(log2(n / i)).
+function heightOf(i, n) { var h = 0; while (i * Math.pow(2, h + 1) <= n) h++; return h; }
+function onesIn(n) { var c = 0; while (n > 0) { c += n % 2; n = Math.floor(n / 2); } return c; }
+// The heights of all nodes add up to n minus the number of 1 bits in n.
+function sumHeights(n) { return n - onesIn(n); }
+// A heap with n nodes has at most this many nodes of height h.
+function maxAtHeight(n, h) { return Math.ceil(n / Math.pow(2, h + 1)); }
+// Is the subtree of node p (1-based) a max-heap? vals starts at position 1 (vals[0] is node 1).
+function isMaxHeap(vals, n, p) {
+  var l = 2 * p, r = l + 1;
+  if (l <= n && (vals[l - 1] > vals[p - 1] || !isMaxHeap(vals, n, l))) return false;
+  if (r <= n && (vals[r - 1] > vals[p - 1] || !isMaxHeap(vals, n, r))) return false;
+  return true;
+}
+
+// mode 'heapify': one call maxHeapify(a, n, startI). mode 'build': the whole buildMaxHeap(a, n).
+function simulate(mode, input, startI) {
+  var n = input.length, a = [null].concat(input);
+  var off = mode === 'build' ? 5 : 0; // buildMaxHeap takes 5 lines (with the empty line) above maxHeapify
+  function L(k) { return k + off; }
+  var steps = [], stack = [], cmp = 0, swp = 0, calls = 0, loopI = null, perCall = [];
+
+  function snap(o) {
+    var top = stack.length ? stack[stack.length - 1] : null;
+    steps.push({
+      mode: mode, n: n, startI: mode === 'heapify' ? startI : null,
+      lines: o.lines || [], title: o.title, note: o.note,
+      vals: a.slice(1),
+      i: top ? top.i : null, l: top ? top.l : null, r: top ? top.r : null, largest: top ? top.largest : null,
+      loopI: loopI,
+      stack: stack.map(function (f) { return { i: f.i, l: f.l, r: f.r, largest: f.largest }; }),
+      cmpNodes: o.cmpNodes || [], swapped: o.swapped || null,
+      cmp: cmp, swp: swp, calls: calls, perCall: perCall.slice(),
+      rows: o.rows || [], done: !!o.done
+    });
+  }
+
+  // One call of maxHeapify. base is the stack size before the first call of the chain.
+  // The calls of a chain all return together, because nothing follows a recursive call.
+  function heapify(i, via, title, note, base) {
+    var f = { i: i, l: null, r: null, largest: null };
+    stack.push(f); calls++;
+    snap({ lines: [via], title: title, rows: ['i', 'a[i]'], note: note });
+    var l = 2 * i, r = 2 * i + 1;
+    f.l = l; f.r = r; f.largest = i;
+    var tail = function () { return stack.length - base > 1 ? ' The call returns. The calls above it have no code left after their recursive call, so they all return too.' : ' The call returns.'; };
+    if (l > n) {
+      snap({ lines: [L(2), L(3), L(4)], title: 'Find the children', rows: ['i', 'l', 'r', 'largest'],
+        note: 'l = 2 × ' + i + ' = ' + l + '. r = 2 × ' + i + ' + 1 = ' + r + '. Both are greater than n = ' + n + ', so node ' + i + ' has no children. largest = i = ' + i + '.' });
+      snap({ lines: [L(5), L(7), L(9)], title: 'A leaf: nothing to do', rows: ['largest'],
+        note: 'The tests l <= n and r <= n both fail. A leaf has no child that can be larger, so largest stays ' + i + '. The test largest != i fails, so there is no swap. A leaf is a max-heap of one node.' + tail() });
+      stack.length = base;
+      return;
+    }
+    snap({ lines: [L(2), L(3), L(4)], title: 'Find the children', rows: ['i', 'l', 'r', 'largest'],
+      note: 'l = 2 × ' + i + ' = ' + l + '. r = 2 × ' + i + ' + 1 = ' + r + '. largest = i = ' + i + '.' + (r > n ? ' Node ' + i + ' has only a left child, because r is greater than n = ' + n + '.' : '') });
+    cmp++;
+    var prev = f.largest, gtL = a[l] > a[prev];
+    if (gtL) f.largest = l;
+    snap({ lines: gtL ? [L(5), L(6)] : [L(5)], title: 'Compare with the left child', cmpNodes: [prev, l], rows: ['l', 'a[l]', 'largest', 'a[largest]', 'comparisons'],
+      note: 'l <= n is true. Is a[l] = ' + a[l] + ' greater than a[' + prev + '] = ' + a[prev] + '? ' + (gtL ? 'Yes. largest = l = ' + l + '.' : 'No. largest stays ' + prev + '.') });
+    if (r <= n) {
+      cmp++;
+      var prev2 = f.largest, gtR = a[r] > a[prev2];
+      if (gtR) f.largest = r;
+      snap({ lines: gtR ? [L(7), L(8)] : [L(7)], title: 'Compare with the right child', cmpNodes: [prev2, r], rows: ['r', 'a[r]', 'largest', 'a[largest]', 'comparisons'],
+        note: 'r <= n is true. Is a[r] = ' + a[r] + ' greater than a[' + prev2 + '] = ' + a[prev2] + '? ' + (gtR ? 'Yes. largest = r = ' + r + '.' : 'No. largest stays ' + prev2 + '.') });
+    } else {
+      snap({ lines: [L(7)], title: 'No right child', rows: ['r'],
+        note: 'r = ' + r + ' is greater than n = ' + n + '. The test r <= n fails, so there is no right child to compare.' });
+    }
+    if (f.largest !== i) {
+      var j = f.largest;
+      snap({ lines: [L(9)], title: 'A child is larger', rows: ['i', 'largest'],
+        note: 'largest = ' + j + ' is not i = ' + i + '. The value ' + a[j] + ' at node ' + j + ' is larger than a[' + i + '] = ' + a[i] + ', so a swap is needed.' });
+      var t = a[i]; a[i] = a[j]; a[j] = t; swp++;
+      snap({ lines: [L(10)], title: 'Swap', swapped: [i, j], rows: ['a[i]', 'a[largest]', 'swaps'],
+        note: 'Swap a[' + i + '] and a[' + j + ']. The value ' + a[i] + ' moves up to node ' + i + '. The value ' + a[j] + ' moves down to node ' + j + '.' });
+      heapify(j, L(11), 'Recursive call',
+        'maxHeapify(a, ' + n + ', largest) runs with i = ' + j + '. The small value ' + a[j] + ' is now at node ' + j + '. The max-heap rule may be broken below it, so the check starts again there.', base);
+    } else {
+      snap({ lines: [L(9)], title: 'No swap needed', rows: ['i', 'largest'],
+        note: 'largest = i = ' + i + '. The value a[' + i + '] = ' + a[i] + ' is not smaller than its children, so the test largest != i fails. The max-heap rule holds at node ' + i + '.' + tail() });
+      stack.length = base;
+    }
+  }
+
+  if (mode === 'heapify') {
+    snap({ title: 'Start',
+      note: 'The array has ' + n + ' numbers. The call is maxHeapify(a, ' + n + ', ' + startI + '). Both subtrees of node ' + startI + ' are max-heaps (a leaf counts as one). Only a[' + startI + '] = ' + a[startI] + ' can be too small. Press Next or Play.' });
+    heapify(startI, 1, 'Call maxHeapify',
+      'maxHeapify(a, ' + n + ', ' + startI + ') starts at node ' + startI + '. Its value is a[' + startI + '] = ' + a[startI] + '. The call is a new frame on the call stack.', 0);
+    var fixed = isMaxHeap(a.slice(1), n, startI);
+    snap({ title: 'Done', done: true,
+      note: 'The call has ended. It made ' + swp + ' swap' + (swp === 1 ? '' : 's') + ' and ' + cmp + ' comparison' + (cmp === 1 ? '' : 's') + ' in ' + calls + ' call' + (calls === 1 ? '' : 's') + '. The subtree of node ' + startI + (fixed ? ' is a max-heap again.' : ' is still not a max-heap.') + (isMaxHeap(a.slice(1), n, 1) ? ' The whole array is a max-heap.' : '') });
+  } else {
+    snap({ title: 'Start',
+      note: 'The array has ' + n + ' numbers. It is not a max-heap yet. The nodes ' + (Math.floor(n / 2) + 1) + ' to ' + n + ' are leaves, and a leaf is a max-heap of one node. buildMaxHeap fixes the other nodes, from node ' + Math.floor(n / 2) + ' up to node 1. Press Next or Play.' });
+    var firstLoop = true;
+    for (loopI = Math.floor(n / 2); loopI >= 1; loopI--) {
+      snap({ lines: [2], title: firstLoop ? 'Start the loop' : 'Next node', rows: ['loop i'],
+        note: firstLoop ? 'The loop starts at i = n / 2 = ' + loopI + '. Node ' + loopI + ' is the last node that has a child. Its children are leaves, so they are max-heaps.'
+                        : 'maxHeapify has returned. i-- makes i = ' + loopI + '. Both subtrees of node ' + loopI + ' are max-heaps now, because their nodes were fixed before.' });
+      firstLoop = false;
+      var before = swp;
+      heapify(loopI, 3, 'Call maxHeapify', 'maxHeapify(a, ' + n + ', ' + loopI + ') is called for node ' + loopI + '. Its value is a[' + loopI + '] = ' + a[loopI] + '. The call is a new frame above buildMaxHeap on the call stack.', 0 + stack.length);
+      perCall[loopI] = swp - before;
+    }
+    loopI = 0;
+    snap({ lines: [2], title: 'The loop ends', rows: ['loop i'], note: 'maxHeapify has returned. i-- makes i = 0, so the test i >= 1 fails and the loop ends.' });
+    loopI = null;
+    snap({ title: 'Done', done: true,
+      note: 'The array is a max-heap. buildMaxHeap made ' + calls + ' calls of maxHeapify, ' + swp + ' swaps, and ' + cmp + ' comparisons.' });
+  }
+  return steps;
+}
+
+// The array before each call of maxHeapify that buildMaxHeap makes, by node.
+function callStates(input) {
+  var out = {};
+  simulate('build', input).forEach(function (s) { if (s.title === 'Call maxHeapify') out[s.i] = s.vals.slice(); });
+  return out;
+}
+
+// ---------- drawing ----------
+var HW = 680, HH = 428, NR = 21, TOPY = 34, DY = 68, AY = 296, CELLH = 40;
+
+function nodeXY(p) {
+  var d = Math.floor(Math.log(p) / Math.LN2 + 1e-9), slots = Math.pow(2, d);
+  return { x: 20 + (p - slots + 0.5) * 640 / slots, y: TOPY + d * DY };
+}
+function stateClass(st, p, ok) {
+  var c = '';
+  if (ok[p]) c += ' ok';
+  if (st.cmpNodes.indexOf(p) >= 0) c += ' cmp';
+  if (st.largest !== null && st.largest === p && st.i !== p) c += ' lg';
+  if ((st.i !== null ? st.i : st.loopI) === p) c += ' cur';
+  if (st.swapped && st.swapped.indexOf(p) >= 0) c += ' swp';
+  return c;
+}
+function drawSVG(st) {
+  var n = st.n, p, ok = [null];
+  for (p = 1; p <= n; p++) ok[p] = isMaxHeap(st.vals, n, p);
+  var s = '<svg viewBox="0 0 ' + HW + ' ' + HH + '" width="' + HW + '" style="width:100%;max-width:' + HW + 'px;min-width:560px" role="img" aria-label="The heap as a binary tree and as an array">';
+  for (p = 2; p <= n; p++) {
+    var a = nodeXY(p >> 1), b = nodeXY(p);
+    var on = (st.i === (p >> 1) && st.cmpNodes.indexOf(p) >= 0) || (st.swapped && st.swapped[0] === (p >> 1) && st.swapped[1] === p);
+    s += '<line class="hpe' + (on ? ' on' : '') + '" x1="' + a.x + '" y1="' + a.y + '" x2="' + b.x + '" y2="' + b.y + '"/>';
+  }
+  for (p = 1; p <= n; p++) {
+    var q = nodeXY(p);
+    s += '<g class="hp' + stateClass(st, p, ok) + '" transform="translate(' + q.x + ',' + q.y + ')"><circle r="' + NR + '"/>' +
+      '<text class="v" y="5" text-anchor="middle">' + st.vals[p - 1] + '</text>' +
+      (p > 1 && p % 2 === 1
+        ? '<text class="ix" x="' + (NR + 3) + '" y="-' + (NR - 2) + '" text-anchor="start">' + p + '</text></g>'
+        : '<text class="ix" x="-' + (NR + 3) + '" y="-' + (NR - 2) + '" text-anchor="end">' + p + '</text></g>');
+  }
+  var cw = Math.min(56, Math.floor(600 / n)), x0 = Math.round((HW - n * cw) / 2);
+  s += '<text class="alb" x="' + x0 + '" y="' + (AY - 10) + '">array a, positions 1 to ' + n + '</text>';
+  for (p = 1; p <= n; p++) {
+    var cx = x0 + (p - 1) * cw;
+    s += '<g class="hc' + stateClass(st, p, ok) + '"><rect x="' + cx + '" y="' + AY + '" width="' + cw + '" height="' + CELLH + '"/>' +
+      '<text class="v" x="' + (cx + cw / 2) + '" y="' + (AY + 26) + '" text-anchor="middle">' + st.vals[p - 1] + '</text></g>' +
+      '<text class="ix" x="' + (cx + cw / 2) + '" y="' + (AY + CELLH + 18) + '" text-anchor="middle">' + p + '</text>';
+  }
+  // Pointer tags under the array. Pointers at the same position stack under each other.
+  var at = {}, kinds = { i: 'pv', l: 'pn', r: 'pn', largest: 'pd' };
+  function put(pos, name) { if (pos !== null && pos >= 1 && pos <= n) (at[pos] = at[pos] || []).push(name); }
+  if (st.stack.length) { put(st.i, 'i'); put(st.l, 'l'); put(st.r, 'r'); put(st.largest, 'largest'); }
+  else if (st.loopI) put(st.loopI, 'i');
+  Object.keys(at).forEach(function (pos) {
+    var cx = x0 + (pos - 1) * cw + cw / 2;
+    at[pos].forEach(function (name, row) {
+      var w = Math.round(name.length * 7.4 + 16), y = AY + CELLH + 34 + row * 26;
+      s += '<g class="tag ' + kinds[name] + '"><rect x="' + (cx - w / 2) + '" y="' + y + '" width="' + w + '" height="20" rx="4"/><text x="' + cx + '" y="' + (y + 14) + '" text-anchor="middle">' + name + '</text></g>';
+      if (row === 0) s += '<g class="tp ' + kinds[name] + '"><path class="hd" d="M' + (cx - 4.5) + ',' + (y - 3) + ' L' + cx + ',' + (y - 10) + ' L' + (cx + 4.5) + ',' + (y - 3) + ' Z"/></g>';
+    });
+  });
+  return s + '</svg>';
+}
+
+function tableHTML(st) {
+  function nv(v) { return v === null || v === undefined ? 'not set' : String(v); }
+  function at(p) { return p !== null && p >= 1 && p <= st.n ? String(st.vals[p - 1]) : 'not set'; }
+  var rows = [];
+  if (st.mode === 'build') rows.push(['loop i', st.loopI === null ? 'not set' : String(st.loopI)]);
+  rows.push(['n', String(st.n)], ['i', nv(st.i)], ['l', nv(st.l)], ['r', nv(st.r)], ['largest', nv(st.largest)],
+    ['a[i]', at(st.i)], ['a[l]', at(st.l)], ['a[r]', at(st.r)], ['a[largest]', at(st.largest)],
+    ['comparisons', String(st.cmp)], ['swaps', String(st.swp)]);
+  if (st.mode === 'build') rows.push(['calls', String(st.calls)]);
+  return rows.map(function (r) {
+    var unset = r[1] === 'not set';
+    return '<li class="pt' + (st.rows.indexOf(r[0]) >= 0 ? ' hi' : '') + '"><span class="k">' + esc(r[0]) + '</span><span class="v' + (unset ? ' unset' : '') + '">' + esc(r[1]) + '</span></li>';
+  }).join('');
+}
+
+function framesHTML(st) {
+  var out = [], base = st.mode === 'build' && st.loopI !== null ? 1 : 0;
+  st.stack.slice().reverse().forEach(function (f, idx) {
+    var depth = st.stack.length - idx + base;
+    var vars = f.l === null ? 'children not read yet' : 'l = ' + f.l + ', r = ' + f.r + ', largest = ' + f.largest;
+    out.push('<li class="frame' + (idx === 0 ? ' top' : '') + '"><div class="fh"><span>maxHeapify(a, ' + st.n + ', ' + f.i + ')</span><span>depth ' + depth + '</span></div><div class="fv"><span>' + vars + '</span></div></li>');
+  });
+  if (base) out.push('<li class="frame' + (st.stack.length ? '' : ' top') + '"><div class="fh"><span>buildMaxHeap(a, ' + st.n + ')</span><span>depth 1</span></div><div class="fv"><span>' + (st.loopI >= 1 ? 'loop i = ' + st.loopI : 'loop ends') + '</span></div></li>');
+  if (!out.length) return '<li class="empty">Empty. ' + (st.done ? 'All calls have returned.' : 'The first call has not started.') + '</li>';
+  return out.join('');
+}
+
+function formulaHTML(st) {
+  var n = st.n, th = '<span class="th">Θ</span>';
+  function row(a, b, last) { return '<tr><td' + (last ? ' class="last"' : '') + ' style="text-align:left">' + a + '</td><td' + (last ? ' class="last"' : '') + '>' + b + '</td></tr>'; }
+  var left = '<div><p class="f-h">Height of a node</p>' +
+    '<p class="f-m">h(i) = ⌊log₂(n / i)⌋</p>' +
+    '<p class="f-note">The height is the number of edges on the longest path from node i down to a leaf. It is also the largest h with i × 2<sup>h</sup> ≤ n.</p>' +
+    '<p class="f-h">One call of maxHeapify at node i</p>' +
+    '<p class="f-m">swaps ≤ h(i)</p><p class="f-m">comparisons ≤ 2 × h(i)</p>' +
+    '<p class="f-note">Each recursive call goes down one level, so a call chain has at most h(i) swaps. Each node that has children costs one or two comparisons. The cost is O(h(i)), and h(i) ≤ log₂ n, so one call costs O(log n).</p>';
+  var right;
+  if (st.mode === 'heapify') {
+    var i0 = st.startI, h = heightOf(i0, n);
+    right = '<div><p class="f-h">This call: maxHeapify(a, ' + n + ', ' + i0 + ')</p><div class="tblwrap"><table class="jt">' +
+      '<tr><th>Item</th><th>Value</th></tr>' +
+      row('Height h(' + i0 + ') = ⌊log₂(' + n + ' / ' + i0 + ')⌋', h) +
+      row('Most swaps: h(' + i0 + ')', h) +
+      row('Most comparisons: 2 × h(' + i0 + ')', 2 * h) +
+      row('This run' + (st.done ? '' : ' so far') + ': swaps', st.swp, true) +
+      row('This run' + (st.done ? '' : ' so far') + ': comparisons', st.cmp, true) + '</table></div>' +
+      (st.done
+        ? ((st.swp <= h && st.cmp <= 2 * h)
+          ? '<p class="f-ok">The call used ' + st.swp + ' swap' + (st.swp === 1 ? '' : 's') + ' and ' + st.cmp + ' comparison' + (st.cmp === 1 ? '' : 's') + '. Both are within the limits h(' + i0 + ') and 2 × h(' + i0 + ').</p>'
+          : '<p class="f-note">The call used ' + st.swp + ' swaps and ' + st.cmp + ' comparisons.</p>')
+        : '<p class="f-note">The limits are for the whole call. The counts grow as the call goes down the tree.</p>') + '</div>';
+    return left + '</div>' + right;
+  }
+  var sh = sumHeights(n), half = Math.floor(n / 2);
+  left += '<p class="f-h">The whole of buildMaxHeap</p>' +
+    '<p class="f-m">Σ h(i) = n − (number of 1 bits in n)</p>' +
+    '<p class="f-m">swaps ≤ Σ h(i), comparisons ≤ 2 × Σ h(i)</p>' +
+    '<p class="f-m">calls = ⌊n / 2⌋ + swaps</p>' +
+    '<p class="f-note">A heap has at most ⌈n / 2<sup>h+1</sup>⌉ nodes of height h. Most nodes are near the bottom, where the height is small. So the sum of the heights is less than n, and buildMaxHeap costs O(n). The loop makes ⌊n / 2⌋ calls, so the cost is also ' + th + '(n). The easy bound of n / 2 calls × log n is correct but too large.</p>' +
+    '<p class="f-note">Every swap causes one recursive call. The loop makes ⌊n / 2⌋ first calls. This gives the formula for calls.</p></div>';
+  var trs = '';
+  for (var i = half; i >= 1; i--) {
+    var used = st.perCall[i];
+    trs += '<tr><td>' + i + '</td><td>' + heightOf(i, n) + '</td><td>' + (used === undefined ? '–' : used) + '</td></tr>';
+  }
+  var ok = st.done && st.swp <= sh && st.cmp <= 2 * sh && st.calls === half + st.swp;
+  right = '<div><p class="f-h">With this input, n = ' + n + ' (' + n.toString(2) + ' in binary)</p><div class="tblwrap"><table class="jt">' +
+    '<tr><th>Node i</th><th>Height h(i)</th><th>Swaps used</th></tr>' + trs + '</table></div>' +
+    '<div class="tblwrap"><table class="jt"><tr><th>Item</th><th>Limit</th><th>This run' + (st.done ? '' : ' so far') + '</th></tr>' +
+    '<tr><td style="text-align:left">Swaps</td><td>' + sh + ' = ' + n + ' − ' + onesIn(n) + '</td><td class="last">' + st.swp + '</td></tr>' +
+    '<tr><td style="text-align:left">Comparisons</td><td>' + 2 * sh + '</td><td class="last">' + st.cmp + '</td></tr>' +
+    '<tr><td style="text-align:left">Calls of maxHeapify</td><td>' + (half + st.swp) + ' = ' + half + ' + swaps</td><td class="last">' + st.calls + '</td></tr></table></div>' +
+    (st.done
+      ? (ok ? '<p class="f-ok">The run used ' + st.swp + ' swaps and ' + st.cmp + ' comparisons. The limits are ' + sh + ' and ' + 2 * sh + '. The number of calls matches ⌊n / 2⌋ + swaps.</p>'
+            : '<p class="f-note">The run used ' + st.swp + ' swaps and ' + st.cmp + ' comparisons.</p>')
+      : '<p class="f-note">The table fills in as each node is fixed. The limits are for the whole run.</p>') + '</div>';
+  return left + right;
+}
+//SIM-END
+
+var CODE = [
+  'void buildMaxHeap(int a[], int n) {',
+  '    for (int i = n / 2; i >= 1; i--)',
+  '        maxHeapify(a, n, i);',
+  '}',
+  '',
+  'void maxHeapify(int a[], int n, int i) {',
+  '    int l = 2 * i;',
+  '    int r = 2 * i + 1;',
+  '    int largest = i;',
+  '    if (l <= n && a[l] > a[largest])',
+  '        largest = l;',
+  '    if (r <= n && a[r] > a[largest])',
+  '        largest = r;',
+  '    if (largest != i) {',
+  '        swap(&a[i], &a[largest]);',
+  '        maxHeapify(a, n, largest);',
+  '    }',
+  '}'
+];
+
+var TRACE = {
+  code: CODE,
+  hl: function (s) {
+    return esc(s)
+      .replace(/\b(maxHeapify|buildMaxHeap|swap)\b/g, '<span class="fn">$1</span>')
+      .replace(/\b(void|int|if|for)\b/g, '<span class="kw">$1</span>');
+  },
+  simulate: function () {
+    return simulate('build', EXAMPLE);
+  },
+  render: function (s) {
+    document.getElementById('stage').innerHTML = drawSVG(s);
+    document.getElementById('ptable').innerHTML = tableHTML(s);
+    document.getElementById('frames').innerHTML = framesHTML(s);
+    document.getElementById('formula').innerHTML = formulaHTML(s);
+  }
+};
+</script>
+<script src="../../assets/player.js"></script>
+</body>
+</html>

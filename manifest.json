@@ -1,8 +1,8 @@
 {
   "site": {
     "title": "Autodidact",
-    "intro": "Learn on your own terms. Pick a subject and work through it one step at a time.",
-    "searchPlaceholder": "Search subjects and topics"
+    "intro": "Learn on your own terms. Pick a subject, press play, and watch each algorithm run one step at a time.",
+    "searchPlaceholder": "Search subjects and algorithms. Typos are fine."
   },
   "divisions": [
     {
@@ -129,19 +129,6 @@
           "keywords": "construct build reconstruct rebuild binary tree preorder postorder traversal full tree"
         },
         {
-          "file": "bst-insertion-orders.html",
-          "chapter": 3,
-          "name": "Count the insertion orders that build a BST",
-          "description": "Count how many insertion orders give one fixed binary search tree. Watch the recursion combine the subtrees with T(n) = T(n1) · T(n2) · (n1 + n2)! / (n1! · n2!).",
-          "tags": [
-            "BST",
-            "Counting",
-            "Recursion",
-            "Formula"
-          ],
-          "keywords": "binary search tree bst insertion order permutation permutations sequences count how many different orders same tree combinations binomial interleave shuffle"
-        },
-        {
           "file": "avl-tree-rotations.html",
           "chapter": 3,
           "name": "AVL tree rotations",
@@ -222,6 +209,30 @@
             "Formula"
           ],
           "keywords": "quick sort partition pivot lomuto hoare divide conquer"
+        },
+        {
+          "file": "max-heapify.html",
+          "chapter": 3,
+          "name": "Max-Heapify",
+          "description": "Watch a value sink down a heap. Pick one of the four calls that Build-Max-Heap makes on 5, 3, 17, 10, 84, 19, 6, 22, 9. See the tree, the array, and the call stack.",
+          "tags": [
+            "Heap",
+            "Recursion",
+            "Formula"
+          ],
+          "keywords": "max heapify heap sift down binary heap priority queue tree array swap largest child"
+        },
+        {
+          "file": "build-max-heap.html",
+          "chapter": 3,
+          "name": "Build-Max-Heap",
+          "description": "Turn 5, 3, 17, 10, 84, 19, 6, 22, 9 into a max-heap. Watch the loop call Max-Heapify from node 4 up to node 1. See why the cost is linear.",
+          "tags": [
+            "Heap",
+            "Recursion",
+            "Formula"
+          ],
+          "keywords": "build max heap heapify bottom up linear time heap sort priority queue tree array"
         }
       ]
     },

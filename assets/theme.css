@@ -1,65 +1,46 @@
-/* The one place for every color on the site. base.css loads this file, so every page gets it.
+/* Every color of the site is here. Each color has one line with two values: light-dark(LIGHT, DARK).
  *
- * Each color has ONE line with both values: light-dark(LIGHT, DARK).
- * Do not write a color value (#hex, rgb(), hsl(), or a color name) in any other file.
- * To make a new color, add a line here and use var(--name) everywhere else.
- * tests/colors.test.mjs fails if a color is outside this file.
- *
- * light-dark() needs a browser from 2024 (Chrome 123, Safari 17.5, Firefox 120).
+ * The page follows the system setting by default. assets/theme.js sets data-theme="light" or
+ * data-theme="dark" on <html> when the person picks a theme with the button.
+ * Other CSS files and pages must use these names with var(). They must not write a color of their own.
+ * The test in tests/theme.test.mjs checks this rule.
  */
-
-/* The switch. These lines choose light or dark for the whole site.
-   With no saved choice and no script, the page follows the system. assets/theme.js sets data-theme. */
 :root { color-scheme: light dark; }
 :root[data-theme="light"] { color-scheme: light; }
 :root[data-theme="dark"] { color-scheme: dark; }
 
 :root {
   /* Page */
-  --bg:           light-dark(#E9EEF2, #0C141D);
-  --grid:         light-dark(#DCE3E9, #132030);
-  --paper:        light-dark(#F9FBFC, #111D2A);
-  --ink:          light-dark(#13202D, #E7EEF4);
-  --muted:        light-dark(#566676, #93A5B6);
-  --line:         light-dark(#C5D0DA, #243649);
+  --bg:        light-dark(#E9EEF2, #0C141D);
+  --grid:      light-dark(#DCE3E9, #132030);
+  --paper:     light-dark(#F9FBFC, #111D2A);
+  --ink:       light-dark(#13202D, #E7EEF4);
+  --muted:     light-dark(#566676, #93A5B6);
+  --line:      light-dark(#C5D0DA, #243649);
 
-  /* Accent and state */
-  --accent:       light-dark(#C2410C, #FF9559);
-  --on-accent:    light-dark(#FFFFFF, #1B0D04);
-  --done:         light-dark(#0B7A6E, #3FD8C2);
-  --on-done:      light-dark(#FFFFFF, #04211C);
-  --hl:           light-dark(#FBE5D8, #3A2618);
+  /* Accents */
+  --accent:    light-dark(#C2410C, #FF9559);
+  --on-accent: light-dark(#FFFFFF, #1B0D04);
+  --done:      light-dark(#0B7A6E, #3FD8C2);
+  --on-done:   light-dark(#FFFFFF, #04211C);
+  --hl:        light-dark(#FBE5D8, #3A2618);
 
   /* Code colors */
-  --kw:           light-dark(#6D3FC8, #B79CFF);
-  --ty:           light-dark(#0B6E99, #6CC4F0);
+  --kw:        light-dark(#6D3FC8, #B79CFF);
+  --ty:        light-dark(#0B6E99, #6CC4F0);
 
-  /* Diagram fills: "less than or equal" and "greater than" */
-  --le:           light-dark(#CDEBE6, #17433F);
-  --gt:           light-dark(#FADFD0, #4A2B19);
+  /* Shadows. The shadow shapes are in hub.css. */
+  --shadow-a:  light-dark(rgba(19, 32, 45, 0.45), rgba(0, 0, 0, 0.75));
+  --shadow-b:  light-dark(rgba(19, 32, 45, 0.08), rgba(0, 0, 0, 0.4));
 
-  /* Shadows. hub.css builds --shadow from these two. */
-  --shadow-a:     light-dark(rgba(19, 32, 45, 0.45), rgba(0, 0, 0, 0.75));
-  --shadow-b:     light-dark(rgba(19, 32, 45, 0.08), rgba(0, 0, 0, 0.4));
+  /* Quicksort: values less than the pivot and values greater than it */
+  --le:        light-dark(#CDEBE6, #17433F);
+  --gt:        light-dark(#FADFD0, #4A2B19);
 
-  /* Red-black tree nodes */
-  --rbred:        light-dark(#C62F2F, #E5484D);
-  --rbblk:        light-dark(#1C2A38, #05080C);
-  --rbline:       light-dark(#13202D, #93A5B6);
-  --rbredline:    light-dark(#8E1F1F, #FFB3B5);
-  --rbtext:       light-dark(#FFFFFF, #FFFFFF);
+  /* Red-black tree */
+  --rbred:     light-dark(#C62F2F, #E5484D);
+  --rbblk:     light-dark(#1C2A38, #05080C);
+  --rbline:    light-dark(#13202D, #93A5B6);
+  --rbredline: light-dark(#8E1F1F, #FFB3B5);
+  --rb-on:     light-dark(#FFFFFF, #FFFFFF);
 }
-
-/* The theme button. assets/theme.js adds it to every page. */
-.theme-toggle {
-  position: absolute; top: 10px; right: max(12px, env(safe-area-inset-right, 0px)); z-index: 40;
-  display: grid; place-items: center; width: 40px; height: 40px; padding: 0;
-  border: 1px solid var(--line); border-radius: 8px;
-  background: var(--paper); color: var(--muted); cursor: pointer;
-}
-.theme-toggle:hover { color: var(--accent); border-color: var(--accent); }
-.theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.theme-toggle svg { width: 20px; height: 20px; }
-.theme-toggle .sun { display: none; }
-:root[data-theme="dark"] .theme-toggle .sun { display: block; }
-:root[data-theme="dark"] .theme-toggle .moon { display: none; }

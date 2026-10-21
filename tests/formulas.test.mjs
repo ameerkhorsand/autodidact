@@ -48,9 +48,9 @@ const sameSet = (a, b) => assert.deepEqual([...a].sort((x, y) => x - y), [...b].
 
 // Every trace needs a formula test. Add a name here and a test below when you add a trace.
 const COVERED = new Set([
-  'array-address.html', 'avl-tree-rotations.html', 'bubble-sort.html', 'doubly-linked-list-insert.html',
+  'array-address.html', 'avl-tree-rotations.html', 'bubble-sort.html', 'build-max-heap.html', 'doubly-linked-list-insert.html',
   'floyd-cycle-detection.html', 'insertion-sort.html', 'josephus.html', 'linked-list-reversal.html',
-  'merge-sort.html', 'order-statistic-tree.html', 'quicksort.html', 'red-black-tree-insertion.html',
+  'max-heapify.html', 'merge-sort.html', 'order-statistic-tree.html', 'quicksort.html', 'red-black-tree-insertion.html',
   'tree-from-preorder-postorder.html',
 ]);
 test('every trace in manifest.json has a formula test', () => {
@@ -432,4 +432,189 @@ test('linked list reversal: every link turns around and the new head is the old 
     assert.equal(Math.max(...steps.map((st) => st.stack.length)), n, `n=${n}: the call stack gets n frames deep`);
     eq(end.stack, [], `n=${n}: the stack is empty at the end`);
   }
+});
+
+// ---------- heaps: Max-Heapify and Build-Max-Heap ----------
+// A reference that the test writes itself: sift down with a plain loop. Positions are 1 to n.
+function refSiftDown(a, n, i0) {
+  let i = i0, cmp = 0, swp = 0, calls = 0;
+  for (;;) {
+    calls++;
+    const l = 2 * i, r = l + 1;
+    let largest = i;
+    if (l <= n) { cmp++; if (a[l] > a[largest]) largest = l; }
+    if (r <= n) { cmp++; if (a[r] > a[largest]) largest = r; }
+    if (largest === i) break;
+    [a[i], a[largest]] = [a[largest], a[i]]; swp++;
+    i = largest;
+  }
+  return { cmp, swp, calls };
+}
+function refBuild(input) {
+  const n = input.length, a = [null, ...input];
+  const out = { cmp: 0, swp: 0, calls: 0, perCall: [] };
+  for (let i = Math.floor(n / 2); i >= 1; i--) {
+    const c = refSiftDown(a, n, i);
+    out.cmp += c.cmp; out.swp += c.swp; out.calls += c.calls; out.perCall[i] = c.swp;
+  }
+  out.a = a.slice(1);
+  return out;
+}
+const isHeapArray = (a) => a.every((v, k) => k === 0 || a[Math.floor((k + 1) / 2) - 1] >= v);
+// The height of node i by a plain search of the tree.
+const bruteHeight = (i, n) => (2 * i > n ? 0 : 1 + Math.max(bruteHeight(2 * i, n), 2 * i + 1 <= n ? bruteHeight(2 * i + 1, n) : 0));
+const ones = (n) => n.toString(2).replace(/0/g, '').length;
+// A small seeded random generator, so that a failure can be repeated.
+function rng(seed) { let t = seed >>> 0; return () => { t = (t + 0x6D2B79F5) >>> 0; let x = Math.imul(t ^ (t >>> 15), 1 | t); x = (x + Math.imul(x ^ (x >>> 7), 61 | x)) ^ x; return ((x ^ (x >>> 14)) >>> 0) / 4294967296; }; };
+const randomArray = (rand, n) => Array.from({ length: n }, () => Math.floor(rand() * 90) + 1);
+const nums = (v) => Array.from(v);
+
+test('Build-Max-Heap: the example gives the max-heap that we find by hand', () => {
+  const s = sim('build-max-heap.html');
+  const ex = nums(s.get('EXAMPLE'));
+  assert.deepEqual(ex, [5, 3, 17, 10, 84, 19, 6, 22, 9]);
+  const end = last(s.run('simulate', 'build', ex));
+  assert.deepEqual(nums(end.vals), [84, 22, 19, 10, 3, 17, 6, 5, 9]);
+  assert.equal(end.swp, 6);
+  assert.equal(end.cmp, 12);
+  assert.equal(end.calls, 10);
+  assert.deepEqual(nums(end.perCall).slice(1), [3, 1, 1, 1], 'swaps for the nodes 1, 2, 3, 4');
+  assert.equal(end.done, true);
+  // The array just before each call of maxHeapify that buildMaxHeap makes.
+  const states = s.run('callStates', ex);
+  assert.deepEqual(nums(states[4]), [5, 3, 17, 10, 84, 19, 6, 22, 9], 'the first call sees the array of the example');
+  assert.deepEqual(nums(states[3]), [5, 3, 17, 22, 84, 19, 6, 10, 9]);
+  assert.deepEqual(nums(states[2]), [5, 3, 19, 22, 84, 17, 6, 10, 9]);
+  assert.deepEqual(nums(states[1]), [5, 84, 19, 22, 3, 17, 6, 10, 9]);
+});
+
+test('Build-Max-Heap: random arrays match the reference, and the counts follow the formulas', () => {
+  const s = sim('build-max-heap.html'), rand = rng(2024);
+  for (let n = 1; n <= 40; n++) {
+    for (let rep = 0; rep < 6; rep++) {
+      const input = randomArray(rand, n), end = last(s.run('simulate', 'build', input)), ref = refBuild(input);
+      const where = `n=${n} [${input}]`;
+      assert.deepEqual(nums(end.vals), ref.a, `${where}: final array`);
+      assert.ok(isHeapArray(nums(end.vals)), `${where}: not a max-heap`);
+      assert.deepEqual(nums(end.vals).sort((x, y) => x - y), [...input].sort((x, y) => x - y), `${where}: the values must be the same values`);
+      assert.equal(end.swp, ref.swp, `${where}: swaps`);
+      assert.equal(end.cmp, ref.cmp, `${where}: comparisons`);
+      assert.equal(end.calls, ref.calls, `${where}: calls`);
+      // The formulas on the page.
+      const sumH = Array.from({ length: n }, (_, k) => bruteHeight(k + 1, n)).reduce((x, y) => x + y, 0);
+      assert.equal(s.run('sumHeights', n), sumH, `${where}: the heights add up to n minus the 1 bits of n`);
+      assert.equal(sumH, n - ones(n));
+      assert.ok(end.swp <= sumH, `${where}: swaps are more than the sum of the heights`);
+      assert.ok(end.cmp <= 2 * sumH, `${where}: comparisons are more than twice the sum of the heights`);
+      assert.equal(end.calls, Math.floor(n / 2) + end.swp, `${where}: calls = n/2 + swaps`);
+      for (let i = 1; i <= Math.floor(n / 2); i++) assert.ok(end.perCall[i] <= bruteHeight(i, n), `${where}: node ${i} used more swaps than its height`);
+    }
+  }
+});
+
+test('Build-Max-Heap: the limit on swaps is exact for a sorted array that fills the tree', () => {
+  const s = sim('build-max-heap.html');
+  for (let k = 1; k <= 6; k++) {
+    const n = 2 ** k - 1, input = Array.from({ length: n }, (_, v) => v + 1);
+    assert.equal(last(s.run('simulate', 'build', input)).swp, n - k, `n=${n}: the worst case uses n minus the 1 bits of n swaps`);
+  }
+});
+
+test('heap formulas: the height of a node and the number of nodes at a height', () => {
+  const s = sim('build-max-heap.html');
+  for (let n = 1; n <= 64; n++) {
+    const count = {};
+    for (let i = 1; i <= n; i++) {
+      assert.equal(s.run('heightOf', i, n), bruteHeight(i, n), `heightOf(${i}, ${n})`);
+      assert.equal(s.run('heightOf', i, n), Math.floor(Math.log2(n / i) + 1e-12), `heightOf(${i}, ${n}) = floor(log2(n / i))`);
+      count[bruteHeight(i, n)] = (count[bruteHeight(i, n)] || 0) + 1;
+    }
+    for (const [h, c] of Object.entries(count)) assert.ok(c <= s.run('maxAtHeight', n, +h), `n=${n}: too many nodes of height ${h}`);
+  }
+});
+
+test('Max-Heapify: every call of the example, and random calls, match the reference', () => {
+  const s = sim('max-heapify.html'), rand = rng(77);
+  const ex = nums(s.get('EXAMPLE'));
+  const check = (input, i, where) => {
+    const n = input.length, end = last(s.run('simulate', 'heapify', input, i));
+    const a = [null, ...input], ref = refSiftDown(a, n, i), h = bruteHeight(i, n);
+    assert.deepEqual(nums(end.vals), a.slice(1), `${where}: final array`);
+    assert.equal(end.swp, ref.swp, `${where}: swaps`);
+    assert.equal(end.cmp, ref.cmp, `${where}: comparisons`);
+    assert.equal(end.calls, ref.calls, `${where}: calls`);
+    assert.ok(end.swp <= h && end.cmp <= 2 * h && end.calls <= h + 1, `${where}: more work than the height allows`);
+    assert.equal(end.calls, end.swp + 1, `${where}: one call, and one more for each swap`);
+    // Only the subtree of node i can change.
+    const inSub = (p) => { while (p > i) p = Math.floor(p / 2); return p === i; };
+    input.forEach((v, k) => { if (!inSub(k + 1)) assert.equal(end.vals[k], v, `${where}: node ${k + 1} is outside the subtree and must not change`); });
+    // The subtree of node i is a max-heap again.
+    assert.equal(s.run('isMaxHeap', nums(end.vals), n, i), true, `${where}: the subtree is not a max-heap`);
+  };
+  const states = s.run('callStates', ex);
+  for (const i of [4, 3, 2, 1]) check(nums(states[i]), i, `example, node ${i}`);
+  // The call at node 1 is the long one: 84 goes up, 5 sinks 3 levels.
+  const long = last(s.run('simulate', 'heapify', nums(states[1]), 1));
+  assert.deepEqual(nums(long.vals), [84, 22, 19, 10, 3, 17, 6, 5, 9]);
+  assert.equal(long.swp, 3);
+  for (let n = 1; n <= 30; n++) for (let rep = 0; rep < 4; rep++) {
+    const st = s.run('callStates', randomArray(rand, n));
+    for (let i = 1; i <= Math.floor(n / 2); i++) check(nums(st[i]), i, `n=${n} node ${i}`);
+  }
+});
+
+test('heap pages: each step keeps the same values, and only a swap changes the array', () => {
+  for (const [file, mode, call] of [['build-max-heap.html', 'build'], ['max-heapify.html', 'heapify', 1]]) {
+    const s = sim(file), ex = nums(s.get('EXAMPLE'));
+    const input = mode === 'build' ? ex : nums(s.run('callStates', ex)[call]);
+    const steps = mode === 'build' ? s.run('simulate', 'build', input) : s.run('simulate', 'heapify', input, call);
+    steps.forEach((st, k) => {
+      assert.deepEqual(nums(st.vals).sort((x, y) => x - y), [...input].sort((x, y) => x - y), `${file} step ${k}: values`);
+      if (k === 0) return;
+      const prev = steps[k - 1];
+      assert.ok(st.cmp >= prev.cmp && st.swp >= prev.swp && st.calls >= prev.calls, `${file} step ${k}: a counter went down`);
+      const changed = nums(st.vals).map((v, p) => (v !== prev.vals[p] ? p + 1 : null)).filter(Boolean);
+      if (st.title === 'Swap') {
+        assert.deepEqual([...changed].sort(), [...st.swapped].sort(), `${file} step ${k}: a swap changes exactly the two positions`);
+        assert.equal(st.swp, prev.swp + 1);
+      } else assert.deepEqual(changed, [], `${file} step ${k} (${st.title}): the array must not change`);
+    });
+  }
+});
+
+test('heap pages: every highlighted line of code is the line that the note talks about', () => {
+  for (const [file, mode] of [['build-max-heap.html', 'build'], ['max-heapify.html', 'heapify']]) {
+    const s = sim(file), code = Array.from(vm.runInNewContext(html(file).match(/var CODE = (\[[\s\S]*?\n\]);/)[1]));
+    const ex = nums(s.get('EXAMPLE'));
+    const steps = mode === 'build' ? s.run('simulate', 'build', ex) : s.run('simulate', 'heapify', nums(s.run('callStates', ex)[1]), 1);
+    const expect = {
+      'Call maxHeapify': mode === 'build' ? ['maxHeapify(a, n, i);'] : ['void maxHeapify'],
+      'Find the children': ['int l = 2 * i;', 'int r = 2 * i + 1;', 'int largest = i;'],
+      'Compare with the left child': ['if (l <= n && a[l] > a[largest])'],
+      'Compare with the right child': ['if (r <= n && a[r] > a[largest])'],
+      'A child is larger': ['if (largest != i) {'],
+      'No swap needed': ['if (largest != i) {'],
+      'Swap': ['swap(&a[i], &a[largest]);'],
+      'Recursive call': ['maxHeapify(a, n, largest);'],
+      'A leaf: nothing to do': ['if (l <= n', 'if (r <= n', 'if (largest != i) {'],
+      'Start the loop': ['for (int i = n / 2; i >= 1; i--)'],
+      'Next node': ['for (int i = n / 2; i >= 1; i--)'],
+      'The loop ends': ['for (int i = n / 2; i >= 1; i--)'],
+    };
+    let checked = 0;
+    for (const st of steps) {
+      for (const l of st.lines) assert.ok(l >= 1 && l <= code.length && code[l - 1].trim() !== '', `${file}: "${st.title}" marks line ${l}, which is not a line of code`);
+      const want = expect[st.title];
+      if (!want) continue;
+      const text = nums(st.lines).map((l) => code[l - 1].trim());
+      for (const w of want) assert.ok(text.some((t) => t.startsWith(w)), `${file}: "${st.title}" must mark "${w}". It marks ${JSON.stringify(text)}`);
+      checked++;
+    }
+    assert.ok(checked > 10);
+  }
+});
+
+test('the two heap pages have the same simulation code', () => {
+  const block = (f) => { const h = html(f); return h.slice(h.indexOf('//SIM-START'), h.indexOf('//SIM-END')); };
+  assert.equal(block('max-heapify.html'), block('build-max-heap.html'), 'change both pages when you change one');
 });

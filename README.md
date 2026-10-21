@@ -1,6 +1,6 @@
 # Autodidact
 
-Animated, step-by-step study pages for computer science. Learn on your own terms: pick a subject and work through it one step at a time.
+Animated, step-by-step study pages for computer science. Learn on your own terms: pick a subject, press play, and watch each algorithm run.
 
 ## Open the site
 
@@ -13,10 +13,9 @@ The fonts are in `assets/fonts`, so the pages look the same when you are offline
 - `index.html` - the main page. **Generated** from `manifest.json`. Do not edit it by hand.
 - `subjects/<subject>/index.html` - the page of one subject. **Generated** from `manifest.json`.
 - `subjects/<subject>/<trace>.html` - one file for each trace. You write these by hand.
-- `assets/base.css` - the fonts and the page reset. Every page loads it first. It also loads `theme.css`.
-- `assets/theme.css` - **every color of the site**, in one file. Each color is one line with both values: `--ink: light-dark(#13202D, #E7EEF4);`. Three `color-scheme` lines at the top choose light or dark.
-- `assets/favicon.svg`, `assets/favicon.ico`, `assets/apple-touch-icon.png` - the site icon. Every page links all three in its `<head>`.
-- `assets/theme.js` - reads the saved choice, sets `data-theme` on `<html>` before the page draws, and adds the night mode button.
+- `assets/base.css` - the fonts, the page reset, and the style of the theme button. Every page loads it first.
+- `assets/theme.css` - **all colors of the site**, in light and dark. See "Colors and night mode".
+- `assets/theme.js` - the theme button (Auto, Light, Dark). It loads in the `<head>` of every page.
 - `assets/hub.css` - the styles of the main page and the subject pages.
 - `assets/trace.css` - the shared styles of the trace pages. A trace page can add its own styles in a `<style>` block after the link.
 - `assets/player.js` - the shared player of the trace pages (the buttons, the scrub bar, the keys, and the code panel).
@@ -33,6 +32,16 @@ You need Node 18 or newer. Run these commands in the project folder.
     npm run check      # check that the generated files are up to date and that the rules below hold
     npm test           # run the check and all the tests
 
+## Colors and night mode
+
+Every page has a round button in the top right corner. It switches between **Auto** (follows your system), **Light**, and **Dark**. The page remembers your choice in the browser.
+
+- All colors are in `assets/theme.css`. Each color is one line: `--name: light-dark(LIGHT, DARK);`.
+- Other CSS files and the trace pages use `var(--name)`. They must not write a color of their own. `npm test` fails if they do.
+- To add a color for a new trace, add one line to `theme.css`, and use the name with `var()`.
+- The browser needs to support `light-dark()`. This means Chrome and Edge 123, Firefox 120, and Safari 17.5 or newer.
+- When you open the pages by double-click (`file://`), some browsers do not share the saved choice between pages. A local server fixes this: `python3 -m http.server 8000`.
+
 ## Search
 
 Every page has one large search bar at the top. It works like Spotlight on macOS or the search of GNOME:
@@ -47,21 +56,10 @@ The data for the search comes from `manifest.json` through `assets/hub-data.js`.
 
 ## Add a trace
 
-1. Copy an existing trace file into the subject folder. Keep these tags: `base.css` and `trace.css` and the `theme.js` script in the `<head>` (in that order), and the `player.js` script at the end.
+1. Copy an existing trace file into the subject folder. Keep the tags in the `<head>` (`base.css`, `theme.css`, `trace.css`, and the `theme.js` script), and keep the `player.js` script at the end.
 2. Change the code and the steps in the copy. Keep the `//SIM-START` and `//SIM-END` markers around the simulation.
 3. Add the trace to `manifest.json` (file, chapter, name, description, tags, keywords).
 4. Run `npm run build`. The build writes the counts, the rows, and the search data. It stops with a message if a rule is broken.
-
-## Colors and night mode
-
-All colors are in `assets/theme.css`. Do not write a color value (`#hex`, `rgb()`, `hsl()`, or a name like `white`) in any other file, and do not write a `prefers-color-scheme` block. To make a new color:
-
-1. Add one line to `assets/theme.css`: `--my-color: light-dark(LIGHT, DARK);`
-2. Use `var(--my-color)` in the CSS or SVG of your page.
-
-`tests/colors.test.mjs` fails if a color value or a dark block is outside `theme.css`. `npm run build` stops if a trace page does not load `assets/theme.js` in its `<head>`.
-
-`light-dark()` needs a browser from 2024 (Chrome 123, Safari 17.5, Firefox 120).
 
 ## How a trace page works
 

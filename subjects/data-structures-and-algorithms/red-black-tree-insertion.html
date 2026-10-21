@@ -3,11 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
 <title>Red-Black Tree Insertion</title>
-<link rel="icon" href="../../assets/favicon.ico" sizes="32x32">
-<link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="../../assets/apple-touch-icon.png">
 <link rel="stylesheet" href="../../assets/base.css">
+<link rel="stylesheet" href="../../assets/theme.css">
 <link rel="stylesheet" href="../../assets/trace.css">
 <script src="../../assets/theme.js"></script>
 <style>
@@ -87,7 +86,7 @@
 .rn circle { stroke-width: 1.8; transition: fill 0.45s; }
 .rn.red circle { fill: var(--rbred); stroke: var(--rbredline); }
 .rn.blk circle { fill: var(--rbblk); stroke: var(--rbline); }
-.rn text.key { font: 700 15px var(--font-mono); fill: var(--rbtext); }
+.rn text.key { font: 700 15px var(--font-mono); fill: var(--rb-on); }
 .rn .pill { fill: var(--paper); stroke: var(--line); stroke-width: 1.2; }
 .rn .bf { font: 700 11px var(--font-mono); fill: var(--ink); }
 .rn .role { font: 700 15px var(--font-mono); fill: var(--done); }
@@ -97,7 +96,7 @@
 .rn.mv circle { stroke: var(--done); stroke-width: 3.4; stroke-dasharray: 4 3; }
 .mn.red circle { fill: var(--rbred); stroke: var(--rbredline); }
 .mn.blk circle { fill: var(--rbblk); stroke: var(--rbline); }
-.mn.red text, .mn.blk text { fill: var(--rbtext); }
+.mn.red text, .mn.blk text { fill: var(--rb-on); }
 .sw.rbred { background: var(--rbred); border-color: var(--rbredline); }
 .sw.rbblk { background: var(--rbblk); border-color: var(--rbline); }
 @media (prefers-reduced-motion: reduce) { .rn, .rn circle { transition: none; } }

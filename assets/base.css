@@ -1,8 +1,5 @@
 /* Shared base for every page: self-hosted fonts and the page reset. */
 
-/* Every color is in theme.css. Every page loads base.css, so every page gets theme.css. */
-@import url(theme.css);
-
 /* Fonts. The files are in assets/fonts, so the pages work with no network. */
 @font-face {
   font-family: 'Bricolage Grotesque';
@@ -29,7 +26,28 @@
   unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
 }
 
-/* Reset. The scheme (light or dark) is chosen in theme.css. */
-:root { padding-block: env(safe-area-inset-top, 0px) env(safe-area-inset-bottom, 0px); }
+/* Reset and fonts. The colors are in theme.css. */
+:root {
+  padding-block: env(safe-area-inset-top, 0px) env(safe-area-inset-bottom, 0px);
+  --font-display: 'Bricolage Grotesque', 'Instrument Sans', system-ui, sans-serif;
+  --font-body: 'Instrument Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
+}
 body { margin: 0; }
 [hidden] { display: none !important; }
+
+/* The theme button. assets/theme.js adds it to every page. */
+.theme-toggle {
+  position: fixed; z-index: 60;
+  top: max(12px, env(safe-area-inset-top, 0px)); right: max(12px, env(safe-area-inset-right, 0px));
+  width: 40px; height: 40px; padding: 0;
+  display: grid; place-items: center;
+  color: var(--muted); background: var(--paper);
+  border: 1px solid var(--line); border-radius: 50%;
+  box-shadow: 0 2px 8px var(--shadow-b);
+  cursor: pointer;
+}
+.theme-toggle:hover { color: var(--accent); border-color: var(--accent); }
+.theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.theme-toggle svg { width: 20px; height: 20px; }
+@media print { .theme-toggle { display: none; } }
