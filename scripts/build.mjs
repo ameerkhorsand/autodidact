@@ -36,6 +36,9 @@ function head(title, cssHref, assetsPrefix) {
 <meta name="color-scheme" content="light dark">
 ${GENERATED}
 <title>${esc(title)}</title>
+<link rel="icon" href="${assetsPrefix}assets/favicon.ico" sizes="32x32">
+<link rel="icon" href="${assetsPrefix}assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="${assetsPrefix}assets/apple-touch-icon.png">
 <link rel="stylesheet" href="${assetsPrefix}assets/base.css">
 <link rel="stylesheet" href="${assetsPrefix}assets/theme.css">
 <link rel="stylesheet" href="${assetsPrefix}assets/${cssHref}">
@@ -90,6 +93,9 @@ for (const s of manifest.subjects) {
     const where = `subjects/${s.id}/${t.file}`;
     for (const need of ['assets/base.css', 'assets/theme.css', 'assets/trace.css', 'assets/theme.js', 'assets/player.js']) {
       if (!html.includes(need)) fail(`${where} does not load ${need}.`);
+    }
+    for (const icon of ['assets/favicon.ico', 'assets/favicon.svg', 'assets/apple-touch-icon.png']) {
+      if (!html.includes(icon)) fail(`${where} does not link ${icon}. Copy the three icon <link> lines from another trace page into the <head>.`);
     }
     if (/fonts\.googleapis\.com|fonts\.gstatic\.com/.test(html)) fail(`${where} loads fonts from the network. Use assets/base.css.`);
     if (!html.includes('//SIM-START') || !html.includes('//SIM-END')) fail(`${where} has no //SIM-START and //SIM-END markers.`);
@@ -197,7 +203,7 @@ for (const s of manifest.subjects) {
     <p>${esc(s.description)}</p>
   </header>
 
-${searchBox('Search all subjects and algorithms. Typos are fine.')}
+${searchBox('Search all subjects and topics')}
 `;
   let sections;
   if (!s.traces.length) {

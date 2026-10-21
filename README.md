@@ -1,6 +1,6 @@
 # Autodidact
 
-Animated, step-by-step study pages for computer science. Learn on your own terms: pick a subject, press play, and watch each algorithm run.
+Animated, step-by-step study pages for computer science. Learn on your own terms: pick a subject and work through it one step at a time.
 
 ## Open the site
 
@@ -14,6 +14,7 @@ The fonts are in `assets/fonts`, so the pages look the same when you are offline
 - `subjects/<subject>/index.html` - the page of one subject. **Generated** from `manifest.json`.
 - `subjects/<subject>/<trace>.html` - one file for each trace. You write these by hand.
 - `assets/base.css` - the fonts, the page reset, and the style of the theme button. Every page loads it first.
+- `assets/favicon.svg`, `assets/favicon.ico`, `assets/apple-touch-icon.png` - the site icon. Every page links all three in its `<head>`.
 - `assets/theme.css` - **all colors of the site**, in light and dark. See "Colors and night mode".
 - `assets/theme.js` - the theme button (Auto, Light, Dark). It loads in the `<head>` of every page.
 - `assets/hub.css` - the styles of the main page and the subject pages.
@@ -56,7 +57,7 @@ The data for the search comes from `manifest.json` through `assets/hub-data.js`.
 
 ## Add a trace
 
-1. Copy an existing trace file into the subject folder. Keep the tags in the `<head>` (`base.css`, `theme.css`, `trace.css`, and the `theme.js` script), and keep the `player.js` script at the end.
+1. Copy an existing trace file into the subject folder. Keep the tags in the `<head>` (the three icon links, `base.css`, `theme.css`, `trace.css`, and the `theme.js` script), and keep the `player.js` script at the end.
 2. Change the code and the steps in the copy. Keep the `//SIM-START` and `//SIM-END` markers around the simulation.
 3. Add the trace to `manifest.json` (file, chapter, name, description, tags, keywords).
 4. Run `npm run build`. The build writes the counts, the rows, and the search data. It stops with a message if a rule is broken.

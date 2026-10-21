@@ -1,8 +1,8 @@
 {
   "site": {
     "title": "Autodidact",
-    "intro": "Learn on your own terms. Pick a subject, press play, and watch each algorithm run one step at a time.",
-    "searchPlaceholder": "Search subjects and algorithms. Typos are fine."
+    "intro": "Learn on your own terms. Pick a subject and work through it one step at a time.",
+    "searchPlaceholder": "Search subjects and topics"
   },
   "divisions": [
     {
@@ -127,6 +127,19 @@
             "Formula"
           ],
           "keywords": "construct build reconstruct rebuild binary tree preorder postorder traversal full tree"
+        },
+        {
+          "file": "bst-insertion-orders.html",
+          "chapter": 3,
+          "name": "Count the insertion orders that build a BST",
+          "description": "Count how many insertion orders give one fixed binary search tree. Watch the recursion combine the subtrees with T(n) = T(n1) · T(n2) · (n1 + n2)! / (n1! · n2!).",
+          "tags": [
+            "BST",
+            "Counting",
+            "Recursion",
+            "Formula"
+          ],
+          "keywords": "binary search tree bst insertion order permutation permutations sequences count how many different orders same tree combinations binomial interleave shuffle"
         },
         {
           "file": "avl-tree-rotations.html",

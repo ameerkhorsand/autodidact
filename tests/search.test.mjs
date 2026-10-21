@@ -135,7 +135,7 @@ test('main page: the panel closes when the focus leaves the bar and opens again 
 test('main page: every card count matches the manifest', async () => {
   const { dom, document } = await loadPage('index.html');
   const total = [...document.querySelectorAll('.card .foot span:first-child')].map((e) => e.textContent);
-  assert.ok(total.includes('15 traces'));
+  assert.ok(total.includes('16 traces'));
   assert.equal(total.filter((t) => t === 'No traces yet').length, 7);
   dom.window.close();
 });
@@ -144,7 +144,7 @@ test('subject page: the bar comes first, the chapters are below, and links keep 
   const { dom, window, document, errors } = await loadPage('subjects/data-structures-and-algorithms/index.html');
   const bar = document.querySelector('.spot'), chapters = document.getElementById('chapters');
   assert.ok(bar.compareDocumentPosition(chapters) & window.Node.DOCUMENT_POSITION_FOLLOWING);
-  assert.equal(chapters.querySelectorAll('li').length, 15);
+  assert.equal(chapters.querySelectorAll('li').length, 16);
   type(window, document.getElementById('q'), 'bubel');
   assert.equal(names(document)[0], 'Bubble sort');
   assert.equal(document.querySelector('#resultlist a.hit').getAttribute('href'), '../../subjects/data-structures-and-algorithms/bubble-sort.html');

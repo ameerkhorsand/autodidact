@@ -48,7 +48,7 @@ const sameSet = (a, b) => assert.deepEqual([...a].sort((x, y) => x - y), [...b].
 
 // Every trace needs a formula test. Add a name here and a test below when you add a trace.
 const COVERED = new Set([
-  'array-address.html', 'avl-tree-rotations.html', 'bubble-sort.html', 'build-max-heap.html', 'doubly-linked-list-insert.html',
+  'array-address.html', 'avl-tree-rotations.html', 'bubble-sort.html', 'bst-insertion-orders.html', 'build-max-heap.html', 'doubly-linked-list-insert.html',
   'floyd-cycle-detection.html', 'insertion-sort.html', 'josephus.html', 'linked-list-reversal.html',
   'max-heapify.html', 'merge-sort.html', 'order-statistic-tree.html', 'quicksort.html', 'red-black-tree-insertion.html',
   'tree-from-preorder-postorder.html',
@@ -270,6 +270,70 @@ test('tree from preorder and postorder: the built tree fits the two lists', () =
   // Catalan numbers: C(m) = (2m)! / (m! (m+1)!)
   const fact = (x) => (x <= 1 ? 1 : x * fact(x - 1));
   for (let m = 0; m <= 8; m++) assert.equal(s.run('catalan', m), fact(2 * m) / (fact(m) * fact(m + 1)), `catalan(${m})`);
+});
+
+// ---------- BST insertion orders ----------
+// The test builds each tree again. It counts the insertion orders in two ways that the page does not use:
+//   1. It lists every order in which each node comes after its parent (the valid orders).
+//   2. It uses the hook formula: n! / (product of the subtree sizes).
+// Then it checks the formula T(n) = T(n1) T(n2) (n1 + n2)! / (n1! n2!) with a plain recursion.
+function bstBuild(t, c) { // t is { l, r } from the page. The keys 1 to n go in order, so the tree is a BST.
+  if (!t) return null;
+  const left = bstBuild(t.l, c), key = ++c.k, right = bstBuild(t.r, c);
+  return { key, left, right };
+}
+const bstSize = (t) => (t ? 1 + bstSize(t.left) + bstSize(t.right) : 0);
+const bstHeight = (t) => (t ? 1 + Math.max(bstHeight(t.left), bstHeight(t.right)) : 0);
+const bstNodes = (t) => (t ? [t, ...bstNodes(t.left), ...bstNodes(t.right)] : []);
+const choose = (n, k) => (k < 0 || k > n ? 0 : k === 0 || k === n ? 1 : choose(n - 1, k - 1) + choose(n - 1, k));
+function countValidOrders(t) {
+  const nodes = bstNodes(t), parent = {};
+  nodes.forEach((v) => { if (v.left) parent[v.left.key] = v.key; if (v.right) parent[v.right.key] = v.key; });
+  const used = new Set();
+  let count = 0;
+  (function go(placed) {
+    if (placed === nodes.length) { count++; return; }
+    for (const v of nodes) {
+      if (used.has(v.key) || (parent[v.key] !== undefined && !used.has(parent[v.key]))) continue;
+      used.add(v.key); go(placed + 1); used.delete(v.key);
+    }
+  })(0);
+  return count;
+}
+test('BST insertion orders: T(n) fits the formula, the hook formula, and a count of all valid orders', () => {
+  const s = sim('bst-insertion-orders.html');
+  const fact = (x) => (x <= 1 ? 1 : x * fact(x - 1));
+  const T = (t) => { if (!t) return 1; const a = bstSize(t.left), b = bstSize(t.right); return T(t.left) * T(t.right) * choose(a + b, a); };
+  const trees = s.get('TREES');
+  assert.ok(trees.length >= 5, 'the page offers at least 5 trees');
+  trees.forEach((tr, ti) => {
+    const root = bstBuild(tr.shape, { k: 0 }), n = bstSize(root), where = `tree ${ti} "${tr.name}"`;
+    const steps = s.run('simulate', ti), end = last(steps);
+    const want = countValidOrders(root);
+    assert.equal(T(root), want, `${where}: the formula gives the count of valid orders`);
+    assert.equal(fact(n) / bstNodes(root).reduce((p, v) => p * bstSize(v), 1), want, `${where}: the hook formula`);
+    assert.equal(end.n, n, `${where}: nodes`);
+    assert.equal(end.answer, want, `${where}: the answer of the page`);
+    assert.equal(end.brute.count, want, `${where}: the brute force of the page`);
+    assert.equal(end.brute.tried, fact(n), `${where}: the brute force tries n! orders`);
+    assert.equal(end.sizeProduct, bstNodes(root).reduce((p, v) => p * bstSize(v), 1), `${where}: product of the subtree sizes`);
+    // Every node ends with its own size and its own count.
+    for (const v of bstNodes(root)) eq(end.done[v.key], [bstSize(v), countValidOrders(v)], `${where}: node ${v.key}`);
+    assert.equal(end.calls, n, `${where}: one call for each node`);
+    assert.equal(end.maxDepth, bstHeight(root), `${where}: depth of the calls`);
+    assert.equal(end.stack.length, 0, `${where}: all calls have returned`);
+    assert.equal(end.finished, true);
+    // Every step: the values in a frame fit the formula, and the lines fit the code.
+    for (const st of steps) {
+      for (const f of st.stack) {
+        if (f.mix !== null) assert.equal(f.mix, choose(f.n1 + f.n2, f.n1), `${where}: mix of node ${f.key}`);
+        if (f.ways !== null) assert.equal(f.ways, f.t1 * f.t2 * f.mix, `${where}: ways of node ${f.key}`);
+      }
+      for (const k of Object.keys(st.done)) assert.ok(st.started[k], `${where}: node ${k} is done but not started`);
+      for (const l of st.lines) assert.ok(l >= 1 && l <= 20, `${where}: line ${l} is not in the code`);
+      assert.equal(st.answer, want, `${where}: every step knows the answer`);
+    }
+  });
 });
 
 // ---------- AVL and red-black trees ----------
