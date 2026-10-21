@@ -297,6 +297,41 @@ function formulaHTML(st) {
 }
 //SIM-END
 
+// The cost of this page. The player draws the Complexity card from it. tests/complexity.test.mjs checks it against the simulation.
+//COMPLEXITY-START
+var COMPLEXITY = {
+  unit: 'loop passes',
+  time: [
+    { when: 'all', o: 'O(n)', words: 'Double n: double the work. Phase 1 and phase 2 together take at most 2n − 2 passes.' }
+  ],
+  space: { o: 'O(1)', words: 'Two pointers, slow and fast. A hash set of seen nodes would need O(n).' },
+  main: 'all',
+  why: [
+    'Phase 1: in each pass slow moves 1 node and fast moves 2. With no cycle, fast reaches NULL after about n / 2 passes.',
+    'With a cycle, fast gains 1 node on slow in each pass. They meet before slow has gone once around the cycle: at most n passes.',
+    'Phase 2: both pointers move 1 node. They meet after μ passes, and μ is less than n.',
+    'The two phases together take at most 2n − 2 passes, which is O(n).'
+  ],
+  cases: [
+    { when: 'best', input: 'The list has no cycle. fast reaches NULL after about n / 2 passes, and phase 2 does not run.',
+      at: function (s) { return Math.floor(s.N / 2); } },
+    { when: 'worst', input: 'The cycle has 1 node, at the end of a long tail. slow walks the whole tail, and phase 2 walks it again.',
+      at: function (s) { return 2 * (s.N - 1); } }
+  ],
+  caseOf: function (s) {
+    var m = s.iter + s.moves;
+    return m === Math.floor(s.N / 2) ? 'best' : (m === 2 * (s.N - 1) ? 'worst' : 'between');
+  },
+  measured: function (s) { return s.iter + s.moves; },
+  meters: [
+    { label: 'phase 1 passes', value: function (s) { return s.iter; }, limit: function (s) { return s.N; } },
+    { label: 'phase 2 passes', value: function (s) { return s.moves; }, limit: function (s) { return s.c > 0 ? s.t : 0; } }
+  ],
+  growth: { label: 'most loop passes, 2n − 2', f: function (n) { return 2 * (n - 1); }, note: 'Double n: the cost doubles. Nothing is stored for each node.' },
+  loops: { 6: 'runs at most n times', 20: 'runs μ times' }
+};
+//COMPLEXITY-END
+
 var TRACE = {
   code: [
     '// Phase 1: is there a cycle?',

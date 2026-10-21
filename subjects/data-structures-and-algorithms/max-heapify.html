@@ -365,6 +365,40 @@ function formulaHTML(st) {
 }
 //SIM-END
 
+// The cost of this page. The player draws the Complexity card from it. tests/complexity.test.mjs checks it against the simulation.
+//COMPLEXITY-START
+var COMPLEXITY = {
+  unit: 'swaps',
+  time: [
+    { when: 'best', o: 'O(1)', words: 'The value is not smaller than its children. It stays, with no swap.' },
+    { when: 'worst', o: 'O(log n)', words: 'Double n: one more level, so two more comparisons.' }
+  ],
+  space: { o: 'O(log n)', words: 'Each recursive call adds a frame. A chain has at most log₂ n + 1 frames.' },
+  main: 'worst',
+  why: [
+    'Each recursive call goes to a child, one level down. A heap of n nodes has about log₂ n levels.',
+    'So a call chain has at most h(i) swaps, where h(i) is the height of node i.',
+    'Each node of the chain costs at most 2 comparisons, so the call costs at most 2 × h(i).'
+  ],
+  cases: [
+    { when: 'best', input: 'The value at node i is not smaller than its children. The call stops at once.',
+      at: function () { return 0; } },
+    { when: 'worst', input: 'The value is smaller than a child at every level, so it sinks to a leaf. This number is the limit. A short path can stay below it.', bound: true,
+      at: function (s) { return heightOf(s.startI, s.n); } }
+  ],
+  caseOf: function (s) {
+    return s.swp === 0 ? 'best' : (s.swp === heightOf(s.startI, s.n) ? 'worst' : 'between');
+  },
+  measured: function (s) { return s.swp; },
+  meters: [
+    { label: 'comparisons', value: function (s) { return s.cmp; }, limit: function (s) { return 2 * heightOf(s.startI, s.n); } },
+    { label: 'swaps', value: function (s) { return s.swp; }, limit: function (s) { return heightOf(s.startI, s.n); } }
+  ],
+  growth: { label: 'comparison limit for node 1', f: function (n) { return 2 * heightOf(1, n); }, note: 'Double n: the cost grows by only 2 comparisons.' },
+  loops: { 11: 'runs at most h(i) more times' }
+};
+//COMPLEXITY-END
+
 var STATES = callStates(EXAMPLE);
 
 var CODE = [

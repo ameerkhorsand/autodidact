@@ -140,20 +140,20 @@ function simulate(pi) {
     while (i <= mid) {
       var v = A(i); tmp[k] = order[i]; mv++;
       var wi = k; i++; k++; cur.i = i; cur.k = k;
-      snap({ lines: [15], title: 'Copy the rest', rows: ['i', 'k', 'copies to tmp'], wrote: wi,
+      snap({ lines: [16], title: 'Copy the rest', rows: ['i', 'k', 'copies to tmp'], wrote: wi,
         note: 'The right half has no more elements. Copy a[i] = ' + v + ' to tmp[k]. Then i = ' + i + ' and k = ' + k + '.' });
     }
     while (j <= hi) {
       var w = A(j); tmp[k] = order[j]; mv++;
       var wj = k; j++; k++; cur.j = j; cur.k = k;
-      snap({ lines: [16], title: 'Copy the rest', rows: ['j', 'k', 'copies to tmp'], wrote: wj,
+      snap({ lines: [17], title: 'Copy the rest', rows: ['j', 'k', 'copies to tmp'], wrote: wj,
         note: 'The left half has no more elements. Copy a[j] = ' + w + ' to tmp[k]. Then j = ' + j + ' and k = ' + k + '.' });
     }
     for (p = lo; p <= hi; p++) order[p] = tmp[p];
     runs = runs.filter(function (r) { return r[1] < lo || r[0] > hi; });
     runs.push([lo, hi]);
     cur.i = null; cur.j = null; cur.k = null; cur.merging = false;
-    snap({ lines: [17], title: 'Copy back', rows: [],
+    snap({ lines: [18], title: 'Copy back', rows: [],
       note: 'The loop sets a[k] = tmp[k] for k = ' + lo + ' to ' + hi + '. The merged run goes back into a. The bars slide to their new places. The positions ' + lo + ' to ' + hi + ' are now sorted.' });
     for (p = lo; p <= hi; p++) tmp[p] = null;
   }
@@ -305,6 +305,45 @@ function formulaHTML(st) {
   return left + right;
 }
 //SIM-END
+
+// The cost of this page. The player draws the Complexity card from it. tests/complexity.test.mjs checks it against the simulation.
+//COMPLEXITY-START
+var COMPLEXITY = {
+  unit: 'comparisons',
+  time: [
+    { when: 'all', o: 'O(n log n)', words: 'Double n: a little more than twice the work.' }
+  ],
+  space: { o: 'O(n)', words: 'The tmp array holds n values. The call stack adds only O(log n).' },
+  main: 'all',
+  why: [
+    'Each level of calls halves the range. So there are about log₂ n levels.',
+    'On one level, the merges together read and copy each element one time. This is n work.',
+    'n work on each of log₂ n levels makes n log₂ n.'
+  ],
+  cases: [
+    { when: 'best', input: 'Each merge ends early, because all of one half comes before the other half. Sorted input and reverse input do this.',
+      at: function (s) { return bestCmp(s.vals.length); } },
+    { when: 'worst', input: 'The two halves of each merge take turns, as in 1 5 3 7 2 6 4 8.',
+      at: function (s) { return worstCmp(s.vals.length); } }
+  ],
+  caseOf: function (s) {
+    var n = s.vals.length;
+    return s.cmp === bestCmp(n) ? 'best' : (s.cmp === worstCmp(n) ? 'worst' : 'between');
+  },
+  measured: function (s) { return s.cmp; },
+  meters: [
+    { label: 'comparisons', value: function (s) { return s.cmp; }, limit: function (s) { return worstCmp(s.vals.length); } },
+    { label: 'copies to tmp', value: function (s) { return s.mv; }, limit: function (s) { return copyLimit(s.vals.length); } }
+  ],
+  growth: { label: 'most comparisons', f: function (n) { return worstCmp(n); }, note: 'Double n: the cost grows by a little more than 2 times. A cost of n² would grow by 4 times.' },
+  loops: {
+    4: 'half the range', 5: 'half the range',
+    12: 'runs < size times', 16: 'runs ≤ left size', 17: 'runs ≤ right size', 18: 'runs size times'
+  }
+};
+// Every level copies each element to tmp once. The number of levels is the smallest k with 2^k >= n.
+function copyLimit(n) { var k = 0; while ((1 << k) < n) k++; return n * k; }
+//COMPLEXITY-END
 
 var MS_CODE = [
   'void mergesort(int a[], int tmp[], int lo, int hi) {',

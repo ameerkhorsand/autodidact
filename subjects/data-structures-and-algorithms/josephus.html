@@ -98,14 +98,14 @@ function ord(v) {
 function simulate(n, k) {
   var next = {}, alive = {}, i;
   for (i = 1; i <= n; i++) { next[i] = i % n + 1; alive[i] = true; }
-  var cur = { p: null, prev: null }, out = [], left = n, steps = [];
+  var cur = { p: null, prev: null }, out = [], left = n, moves = 0, steps = [];
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
   function snap(o) {
     steps.push({
       lines: o.lines || [], title: o.title, note: o.note, n: n, k: k,
       next: clone(next), alive: clone(alive), p: cur.p, prev: cur.prev,
       removing: o.removing || null, changed: o.changed || null,
-      out: out.slice(), left: left, survivor: o.survivor || null, hi: o.hi || []
+      out: out.slice(), left: left, moves: moves, survivor: o.survivor || null, hi: o.hi || []
     });
   }
   snap({ title: 'Start', note: n + ' people stand in a circle, numbered 1 to ' + n + '. Each person is a node. The function counts ' + k + ' people and removes the ' + ord(k) + ' one. It repeats until one person is left.' });
@@ -118,7 +118,7 @@ function simulate(n, k) {
     }
     snap({ lines: [3], title: 'Loop test', note: 'p->next is not p. More than one node is left. The loop goes on.' });
     for (var c = 1; c < k; c++) {
-      cur.prev = cur.p; cur.p = next[cur.p];
+      cur.prev = cur.p; cur.p = next[cur.p]; moves++;
       snap({ lines: [5, 6], title: 'Count', hi: ['p', 'prev'], note: 'prev = p, then p = p->next. prev is node ' + cur.prev + '. p is node ' + cur.p + '. This is person ' + (c + 1) + ' of ' + k + ' in this count.' });
     }
     var gone = cur.p;
@@ -244,6 +244,40 @@ function formulaHTML(st) {
   return left + right;
 }
 //SIM-END
+
+// The cost of this page. The player draws the Complexity card from it. tests/complexity.test.mjs checks it against the simulation.
+//COMPLEXITY-START
+var COMPLEXITY = {
+  unit: 'pointer moves',
+  time: [
+    { when: 'all', o: 'O(n·k)', words: 'Double n: double the work. A larger k adds k − 1 moves for each person.' }
+  ],
+  space: { o: 'O(1)', words: 'Only p and prev. The list exists already, and free gives each node back.' },
+  main: 'all',
+  why: [
+    'The outer loop removes one person in each pass. It runs n − 1 times.',
+    'Before each removal, the inner loop moves p forward k − 1 times.',
+    'So p moves (n − 1)(k − 1) times, which is O(n·k). Unlink and free cost O(1) each.',
+    'For k = 2, the closed form J(n) = 2L + 1 gives the survivor without the circle.'
+  ],
+  cases: [
+    { when: 'all', input: 'The work does not depend on who survives. Only n and k change it.',
+      at: function (s) { return (s.n - 1) * (s.k - 1); } }
+  ],
+  caseOf: function () { return 'all'; },
+  measured: function (s) { return s.moves; },
+  meters: [
+    { label: 'pointer moves', value: function (s) { return s.moves; }, limit: function (s) { return (s.n - 1) * (s.k - 1); } },
+    { label: 'people removed', value: function (s) { return s.out.length; }, limit: function (s) { return s.n - 1; } }
+  ],
+  growth: {
+    label: function (s) { return 'pointer moves for k = ' + s.k; },
+    f: function (n, s) { return (n - 1) * (s.k - 1); },
+    note: 'Double n: the cost doubles, a little more. Double k: it doubles too.'
+  },
+  loops: { 3: 'runs n − 1 times', 4: 'runs k − 1 times' }
+};
+//COMPLEXITY-END
 
 var TRACE = {
   code: [

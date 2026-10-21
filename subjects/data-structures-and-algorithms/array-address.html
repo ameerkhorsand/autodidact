@@ -235,8 +235,12 @@ function simulate(c) {
   var mod = model(c), T = mod.terms, steps = [], code = codeFor(c), K = code.key;
   var A = 'A[' + (c.d === 3 ? c.i + '][' + c.j + '][' + c.k : c.i + '][' + c.j) + ']';
   var nT = T.length;
+  // Count the arithmetic operations (* + -) of the code, line by line. total is the count for the whole function.
+  function tOps(t) { return (t.num.length > 1 ? t.num.length - 1 : 0) + (t.num.length ? 1 : 0) + (c.lo ? 1 : 0); }
+  var total = T.reduce(function (a, t) { return a + tOps(t); }, 0) + (nT - 1) + 2, ops = 0;
   function snap(o) {
     o.lines = o.lines || [];
+    o.ops = ops; o.opsMax = total;
     steps.push(o);
   }
   var orderTxt = c.order === 'row'
@@ -256,10 +260,14 @@ function simulate(c) {
       note = first + 'Inside ' + where + ', ' + t.cnt + ' element' + (t.cnt === 1 ? '' : 's') + ' come before the target. Skip ' + t.cnt + '.';
     }
     var title = last ? 'Skip elements' : 'Skip ' + nm + 's';
+    ops += tOps(t);
     snap({ title: title, shown: n + 1, known: n + 1, lines: K['t' + n], hi: ['t' + n], note: note });
   });
+  ops += nT - 1;
   snap({ title: 'Add the counts', shown: nT, known: nT + 1, lines: K.index, hi: ['index'], note: 'Add the skipped elements: ' + T.map(function (t) { return t.skip; }).join(' + ') + ' = ' + mod.index + '. So ' + mod.index + ' element' + (mod.index === 1 ? '' : 's') + ' come before ' + A + '. This number is the index of the element in memory, counted from 0.' });
+  ops += 1;
   snap({ title: 'Multiply by m', shown: nT, known: nT + 2, lines: K.ret, hi: ['bytes'], note: 'Each element uses m = ' + c.m + ' byte' + (c.m === 1 ? '' : 's') + '. The bytes before the target are ' + mod.index + ' × ' + c.m + ' = ' + mod.bytes + '.' });
+  ops += 1;
   snap({ title: 'Add the base', shown: nT, known: nT + 3, lines: K.ret, hi: ['addr'], note: 'Add the base address: ' + c.base + ' + ' + mod.bytes + ' = ' + mod.addr + '. This is the address of ' + A + '.' });
   snap({ title: 'Done', shown: nT, known: nT + 3, done: true, note: A + ' starts at address ' + mod.addr + '. It uses the bytes ' + mod.addr + ' to ' + (mod.addr + c.m - 1) + '.' });
   return steps;
@@ -448,6 +456,34 @@ function formulaHTML(c, st) {
   return left + right;
 }
 //SIM-END
+
+// The cost of this page. The player draws the Complexity card from it. tests/complexity.test.mjs checks it against the simulation.
+//COMPLEXITY-START
+var COMPLEXITY = {
+  unit: 'operations',
+  time: [
+    { when: 'all', o: 'O(1)', words: 'The same few operations for every element, in an array of any size.' }
+  ],
+  space: { o: 'O(1)', words: 'A few numbers. There is no loop and no copy of the array.' },
+  main: 'all',
+  why: [
+    'The address needs one multiplication for each index except the last, one multiplication by m, and a few additions.',
+    'The number of operations depends on the number of dimensions, 2 or 3. It does not depend on R, C, H, or on the element that you choose.',
+    'So A[i][j][k] costs the same in an array of 10 elements and in an array of 10 million. This is why array access is O(1).'
+  ],
+  cases: [
+    { when: 'all', input: 'Every element costs the same. A first index of 1 adds one subtraction for each index.',
+      at: function (s) { return s.opsMax; } }
+  ],
+  caseOf: function () { return 'all'; },
+  measured: function (s) { return s.ops; },
+  meters: [
+    { label: 'operations', value: function (s) { return s.ops; }, limit: function (s) { return s.opsMax; } }
+  ],
+  growth: { label: 'operations for n elements', flat: true, f: function (n, s) { return s.opsMax; }, note: 'Double n: the cost stays the same. A search through the array would grow with n.' },
+  loops: {}
+};
+//COMPLEXITY-END
 
 var TRACE = {
   cfg: null,

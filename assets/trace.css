@@ -216,3 +216,39 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px s
 .jt th, .jt td { padding: 4px 9px; border: 1px solid var(--line); text-align: center; min-width: 34px; }
 .jt th { color: var(--muted); font-weight: 500; text-align: left; }
 .jt td.last { background: var(--hl); font-weight: 700; }
+
+/* Complexity card. It sits under the title and above the controls. Drawn by player.js from COMPLEXITY. */
+.cx-top { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 16px 32px; padding: 14px 14px 4px; }
+.cx-cases { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px 24px; }
+.cx-h { margin: 0 0 8px; font: 500 11px/1 var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.cx-cell { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 8px 10px; border: 1px solid transparent; border-radius: 6px; }
+.cx-cell.here { border-color: var(--line); background: var(--hl); }
+.cx-when { font: 500 11px/1.2 var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.cx-o { font: 700 32px/1.1 var(--font-display); letter-spacing: -0.02em; color: var(--ink); overflow-wrap: anywhere; }
+.cx-cell.main .cx-o { color: var(--accent); }
+.cx-w { font-size: 14px; line-height: 1.4; color: var(--muted); max-width: 40ch; margin: 0; }
+.cx-meters { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px 32px; padding: 10px 14px 12px; }
+.cx-mt { display: flex; justify-content: space-between; gap: 12px; margin: 0 0 6px; font: 13px/1.2 var(--font-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.cx-mt b { color: var(--ink); font-weight: 700; }
+.cx-bar { height: 10px; border: 1px solid var(--line); border-radius: 5px; background: var(--bg); overflow: hidden; }
+.cx-bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width 0.3s; }
+.cx-more { border-top: 1px solid var(--line); }
+.cx-more summary { cursor: pointer; padding: 10px 14px; font: 500 11px/1 var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.cx-more summary:hover { color: var(--accent); }
+.cx-more summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.cx-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px 32px; padding: 4px 14px 14px; }
+.cx-cols > div { min-width: 0; }
+.cx-cols p { margin: 0 0 8px; max-width: 52ch; }
+.cx-cols p.cx-h { margin-bottom: 8px; }
+.cx-cols p.cx-w { margin-top: 8px; }
+.cx-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.cx-list li { display: grid; gap: 2px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px; }
+.cx-list li.here { border-color: var(--accent); background: var(--hl); }
+.cx-list span { color: var(--muted); font-size: 14px; }
+.cx-list .cx-n { font: 600 13px var(--font-mono); color: var(--ink); }
+.cx-tab { border-collapse: collapse; font: 13px var(--font-mono); }
+.cx-tab th, .cx-tab td { padding: 4px 12px; border: 1px solid var(--line); text-align: right; font-variant-numeric: tabular-nums; }
+.cx-tab th { color: var(--muted); font-weight: 500; }
+.code .rep { margin-left: 18px; padding: 0 7px; border: 1px solid var(--line); border-radius: 4px; font: 500 11px/1.5 var(--font-body); color: var(--muted); user-select: none; }
+@media (max-width: 860px) { .cx-top { grid-template-columns: minmax(0, 1fr); } .cx-o { font-size: 28px; } }
+@media (prefers-reduced-motion: reduce) { .cx-bar i { transition: none; } }

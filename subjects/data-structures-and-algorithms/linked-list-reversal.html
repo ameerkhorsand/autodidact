@@ -113,13 +113,13 @@
 function simulate(n) {
   var links = {};
   for (var k = 1; k <= n; k++) links[k] = k < n ? k + 1 : null;
-  var steps = [], stack = [], calls = 0;
+  var steps = [], stack = [], calls = 0, writes = 0;
   var seq = [];
   for (var q = 1; q <= n; q++) seq.push(q);
   function chain(a) { return a.join(' → '); }
   function snap(o) {
     steps.push({
-      line: o.line, title: o.title, note: o.note,
+      line: o.line, title: o.title, note: o.note, n: n, calls: calls, writes: writes,
       ret: o.ret || null, retLabel: o.retLabel || 'return',
       changed: o.changed || null,
       links: Object.assign({}, links),
@@ -143,9 +143,9 @@ function simulate(n) {
     var h = rec(nxt);
     f.h = h;
     snap({ line: 5, title: 'Call returns', note: 'The call gives back node ' + h + '. Now h points to node ' + h + '.' });
-    links[nxt] = p;
+    links[nxt] = p; writes++;
     snap({ line: 6, title: 'Turn the link', changed: { from: nxt }, note: 'p->link is node ' + nxt + '. Its link now points back to node ' + p + '. The arrow turns around.' });
-    links[p] = null;
+    links[p] = null; writes++;
     snap({ line: 7, title: 'Cut the old link', changed: { from: p }, note: 'p->link = NULL. Node ' + p + ' no longer points to node ' + nxt + '. It points to NULL for now. The caller will change this link.' });
     snap({ line: 8, title: 'Return h', ret: h, note: 'return h. h still points to node ' + h + ', the new head. The call ends.' });
     stack.pop();
@@ -156,6 +156,35 @@ function simulate(n) {
   return steps;
 }
 //SIM-END
+
+// The cost of this page. The player draws the Complexity card from it. tests/complexity.test.mjs checks it against the simulation.
+//COMPLEXITY-START
+var COMPLEXITY = {
+  unit: 'calls',
+  time: [
+    { when: 'all', o: 'O(n)', words: 'Double n: double the work. Each node gets one call and 2 link writes.' }
+  ],
+  space: { o: 'O(n)', words: 'All n calls wait on the stack at the deepest point. A loop with 3 pointers needs only O(1).' },
+  main: 'all',
+  why: [
+    'listravel calls itself one time for each node. This makes n calls, and each call has one frame.',
+    'Each call does a fixed amount of work: one test and 2 link writes. So the time is n times a constant.',
+    'A call waits for the next call, and returns only after it. So all n frames are on the stack together. This is the O(n) space.'
+  ],
+  cases: [
+    { when: 'all', input: 'The work does not depend on the values. Only the number of nodes changes it.',
+      at: function (s) { return s.n; } }
+  ],
+  caseOf: function () { return 'all'; },
+  measured: function (s) { return s.calls; },
+  meters: [
+    { label: 'calls', value: function (s) { return s.calls; }, limit: function (s) { return s.n; } },
+    { label: 'link writes', value: function (s) { return s.writes; }, limit: function (s) { return 2 * (s.n - 1); } }
+  ],
+  growth: { label: 'calls, and frames on the stack', f: function (n) { return n; }, note: 'Double n: the calls double, and the stack becomes twice as deep.' },
+  loops: { 5: 'n − 1 times in all', 6: 'n − 1 times in all', 7: 'n − 1 times in all' }
+};
+//COMPLEXITY-END
 
 (function () {
   var CODE = [

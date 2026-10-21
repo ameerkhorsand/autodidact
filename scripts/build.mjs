@@ -18,6 +18,10 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const CHECK = process.argv.includes('--check');
 const manifest = JSON.parse(readFileSync(join(ROOT, 'manifest.json'), 'utf8'));
 
+// Trace pages that have no COMPLEXITY yet. Remove a file from scripts/complexity-pending.json when you add it.
+// When the list is empty, every trace page must have COMPLEXITY.
+const pending = new Set(JSON.parse(readFileSync(join(ROOT, 'scripts', 'complexity-pending.json'), 'utf8')));
+
 const errors = [];
 const fail = (msg) => errors.push(msg);
 
@@ -100,6 +104,12 @@ for (const s of manifest.subjects) {
     if (/fonts\.googleapis\.com|fonts\.gstatic\.com/.test(html)) fail(`${where} loads fonts from the network. Use assets/base.css.`);
     if (!html.includes('//SIM-START') || !html.includes('//SIM-END')) fail(`${where} has no //SIM-START and //SIM-END markers.`);
     if (!html.includes('window.TRACE') && !/var TRACE\s*=/.test(html)) fail(`${where} does not define TRACE.`);
+    const hasCx = html.includes('//COMPLEXITY-START') && html.includes('//COMPLEXITY-END') && /var COMPLEXITY\s*=/.test(html);
+    if (pending.has(t.file)) {
+      if (hasCx) fail(`${where} has COMPLEXITY. Remove "${t.file}" from scripts/complexity-pending.json.`);
+    } else if (!hasCx) {
+      fail(`${where} has no COMPLEXITY. Put "var COMPLEXITY = {...}" between //COMPLEXITY-START and //COMPLEXITY-END, after //SIM-END. The fields are in README.md.`);
+    }
   }
   const dir = join(ROOT, 'subjects', s.id);
   if (!existsSync(dir)) fail(`Subject folder is missing: subjects/${s.id}`);
@@ -108,6 +118,9 @@ for (const s of manifest.subjects) {
       if (f.endsWith('.html') && f !== 'index.html' && !files.has(f)) fail(`subjects/${s.id}/${f} is not in manifest.json.`);
     }
   }
+}
+for (const f of pending) {
+  if (!manifest.subjects.some((s) => s.traces.some((t) => t.file === f))) fail(`scripts/complexity-pending.json lists "${f}", which is not in manifest.json.`);
 }
 for (const d of manifest.divisions) {
   if (!manifest.subjects.some((s) => s.division === d.id)) fail(`Division "${d.id}" has no subject.`);

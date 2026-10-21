@@ -364,6 +364,39 @@ function formulaHTML(st) {
 }
 //SIM-END
 
+// The cost of this page. The player draws the Complexity card from it. tests/complexity.test.mjs checks it against the simulation.
+//COMPLEXITY-START
+var COMPLEXITY = {
+  unit: 'comparisons',
+  time: [
+    { when: 'all', o: 'O(n)', words: 'Double n: double the work. Most nodes are near the bottom, so they sink only a little.' }
+  ],
+  space: { o: 'O(log n)', words: 'The work is in the array. Only the call stack grows, up to log₂ n + 1 frames.' },
+  main: 'all',
+  why: [
+    'The loop makes ⌊n / 2⌋ calls. A call at node i costs about h(i), the height of node i.',
+    'Few nodes are high. A heap has at most ⌈n / 2^(h+1)⌉ nodes of height h.',
+    'The heights add up to n minus the number of 1 bits in n. This is less than n. So the total is O(n), and not (n / 2) × log n.'
+  ],
+  cases: [
+    { when: 'best', input: 'The array is a max-heap already. No swap happens. Each node except the root is compared one time.',
+      at: function (s) { return s.n - 1; } },
+    { when: 'worst', input: 'Every value sinks to the bottom, as in ascending order. This number is the limit. Some values of n stay below it.', bound: true,
+      at: function (s) { return 2 * sumHeights(s.n); } }
+  ],
+  caseOf: function (s) {
+    return s.cmp === s.n - 1 && s.swp === 0 ? 'best' : (s.cmp === 2 * sumHeights(s.n) ? 'worst' : 'between');
+  },
+  measured: function (s) { return s.cmp; },
+  meters: [
+    { label: 'comparisons', value: function (s) { return s.cmp; }, limit: function (s) { return 2 * sumHeights(s.n); } },
+    { label: 'swaps', value: function (s) { return s.swp; }, limit: function (s) { return sumHeights(s.n); } }
+  ],
+  growth: { label: 'comparison limit', f: function (n) { return 2 * sumHeights(n); }, note: 'Double n: the limit doubles. A cost of n log n would grow by more than 2 times.' },
+  loops: { 2: 'runs ⌊n / 2⌋ times', 3: 'costs at most 2 × h(i)', 16: 'runs at most h(i) more times' }
+};
+//COMPLEXITY-END
+
 var CODE = [
   'void buildMaxHeap(int a[], int n) {',
   '    for (int i = n / 2; i >= 1; i--)',
